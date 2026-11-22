@@ -23,7 +23,7 @@ export default function PersonalGoals({ userId }: { userId?: string }) {
   const [heightUnit,setHeightUnit] = useState<'cm'|'ft'>('cm')
   const [values,setValues] = useState<TargetValues>(defaults)
   const [enabled,setEnabled] = useState<Enabled>({calories:true,protein:true,carbs:true,fat:true,water:true,steps:false,sleep:false})
-  const [weekend,setWeekend] = useState(false)
+  const [dayType,setDayType] = useState<'all'|'weekday'|'weekend'>('all')
   const [message,setMessage] = useState('')
   const [busy,setBusy] = useState(false)
   const [loaded,setLoaded] = useState(false)
@@ -48,7 +48,7 @@ export default function PersonalGoals({ userId }: { userId?: string }) {
         const d=t.data
         setValues({calories:d.calories_kcal ?? defaults.calories,protein:d.protein_g ?? defaults.protein,carbs:d.carbs_g ?? defaults.carbs,fat:d.fat_g ?? defaults.fat,water:d.water_ml ?? defaults.water,steps:d.steps ?? defaults.steps,sleep:d.sleep_hours ?? defaults.sleep})
         setEnabled({...defaultsEnabled,...(d.enabled ?? {})})
-        setWeekend(d.day_type==='weekend')
+        setDayType(d.day_type ?? 'all')
       }
       setLoaded(true)
     }).catch(e=>{if(live){setMessage(e instanceof Error?e.message:'Nu am putut încărca obiectivele.');setLoaded(true)}})
@@ -78,7 +78,7 @@ export default function PersonalGoals({ userId }: { userId?: string }) {
     if(!supabase||!userId){setMessage('Autentifică-te pentru a salva obiectivele.');return}
     setBusy(true)
     const enabledKeys=Object.fromEntries(keys.map(k=>[k,enabled[k]]))
-    const row={user_id:userId,target_date:new Date().toISOString().slice(0,10),day_type:weekend?'weekend':'all',calories_kcal:targetValues.calories,protein_g:targetValues.protein,carbs_g:targetValues.carbs,fat_g:targetValues.fat,water_ml:targetValues.water,steps:targetValues.steps,sleep_hours:targetValues.sleep,enabled:enabledKeys}
+    const row={user_id:userId,target_date:new Date().toISOString().slice(0,10),day_type:dayType,calories_kcal:targetValues.calories,protein_g:targetValues.protein,carbs_g:targetValues.carbs,fat_g:targetValues.fat,water_ml:targetValues.water,steps:targetValues.steps,sleep_hours:targetValues.sleep,enabled:enabledKeys}
     const {error}=await supabase.from('daily_targets').insert(row)
     setMessage(error?'Eroare la salvarea obiectivelor: '+error.message:'Obiectivele au fost salvate începând de astăzi. Înregistrările istorice au rămas neschimbate.')
     setBusy(false)
@@ -107,7 +107,7 @@ export default function PersonalGoals({ userId }: { userId?: string }) {
       <div className="goal-actions"><button type="button" className="text-button" onClick={()=>{setMessage('Poți reveni la configurare oricând din Setări.');setStep(2)}}>Sari peste configurare</button><button type="button" className="full-button" disabled={busy} onClick={()=>{setValues(v=>({...v,calories:suggestedCalories,water:suggestedWater}));void saveSetup()}}>Salvează profilul și continuă</button></div>
     </> : <>
       <div className="goal-steps"><span>1 · Profil</span><span className="active">2 · Ținte zilnice</span></div>
-      <div className="target-scope"><span>Aplică pentru</span><button type="button" className={!weekend?'selected':''} onClick={()=>setWeekend(false)}>Toate zilele</button><button type="button" className={weekend?'selected':''} onClick={()=>setWeekend(true)}>Weekend</button></div>
+      <div className="target-scope"><span>Aplică pentru</span><button type="button" className={dayType==='all'?'selected':''} onClick={()=>setDayType('all')}>Toate zilele</button><button type="button" className={dayType==='weekday'?'selected':''} onClick={()=>setDayType('weekday')}>Zile lucrătoare</button><button type="button" className={dayType==='weekend'?'selected':''} onClick={()=>setDayType('weekend')}>Weekend</button></div>
       <div className="target-editor">{keys.map(key=><div className="target-row" key={key}><label><input type="checkbox" checked={enabled[key]} onChange={e=>setEnabled(v=>({...v,[key]:e.target.checked}))}/><span>{labels[key]}</span></label><input aria-label={labels[key]} type="number" min="0" step={key==='sleep'?0.5:1} value={values[key]} disabled={!enabled[key]} onChange={e=>setValues(v=>({...v,[key]:Number(e.target.value)}))}/></div>)}</div>
       <p className="goal-note">Dezactivează țintele pe care nu dorești să le urmărești. Modificările se aplică de astăzi înainte; datele anterioare nu sunt rescrise.</p>
       <div className="goal-actions"><button type="button" className="text-button" onClick={()=>setStep(1)}>Înapoi la profil</button><button type="button" className="full-button" disabled={busy} onClick={()=>void saveTargets()}>Salvează țintele</button></div>
