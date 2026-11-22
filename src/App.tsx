@@ -45,10 +45,7 @@ const initialTasks: Task[] = [
   { id: 4, label: 'Lunch', time: '13:00', done: false, kind: 'meal' },
 ]
 
-export default function App() {
-  const auth = useAuth()
-  if (auth.loading) return <main className="auth-screen"><div className="auth-card">Se încarcă profilul…</div></main>
-  if (auth.configured && !auth.user) return <AuthPanel />
+function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
   const [lang, setLang] = useState<Language>('ro')
   const [water, setWater] = useState(1250)
   const [tasks, setTasks] = useState(initialTasks)
@@ -199,4 +196,12 @@ export default function App() {
       <footer className="footer-note"><ShieldCheck size={15} />{t.demo}<span>HealthyLife AI · v1.0.2</span></footer>
     </main>
   </div>
+}
+
+
+export default function App() {
+  const auth = useAuth()
+  if (auth.loading) return <main className="auth-screen"><div className="auth-card">Se încarcă profilul…</div></main>
+  if (auth.configured && !auth.user) return <AuthPanel />
+  return <Dashboard auth={auth} />
 }
