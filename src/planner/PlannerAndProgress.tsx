@@ -34,12 +34,13 @@ export default function PlannerAndProgress({userId}:{userId?:string}) {
  useEffect(()=>{void load()},[load])
  useEffect(()=>{
   if(!supabase||!userId||typeof Notification==='undefined')return
+  const client=supabase
   const tick=async()=>{
    const now=Date.now()
    const due=plans.filter(p=>p.reminder_enabled&&!p.reminder_sent_at&&new Date(p.snoozed_until??p.planned_for).getTime()<=now&&!p.eaten_at)
    for(const p of due){
     if(Notification.permission==='granted')new Notification('HealthyLife · '+p.slot_name,{body:'Este timpul pentru: '+p.meal_name})
-    await supabase.from('meal_plans').update({reminder_sent_at:new Date().toISOString()}).eq('id',p.id).eq('user_id',userId)
+    await client.from('meal_plans').update({reminder_sent_at:new Date().toISOString()}).eq('id',p.id).eq('user_id',userId)
     setPlans(current=>current.map(x=>x.id===p.id?{...x,reminder_sent_at:new Date().toISOString()}:x))
    }
   }
