@@ -231,7 +231,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
         },
       }))
       if (!analyzed.length) throw new Error(data?.uncertainty || 'Nu am identificat alimente în fotografie. Încearcă o imagine mai clară.')
-      if (analyzed.some(item => !Number.isFinite(item.grams) || item.grams <= 0 || ![item.nutrition.kcal, item.nutrition.protein, item.nutrition.carbs, item.nutrition.fat].every(value => Number.isFinite(value) && value >= 0))) throw new Error('Analiza a returnat valori nutriționale invalide. Reîncearcă sau introdu manual ingredientele.')
+      if (analyzed.some(item => !item.nutrition || !Number.isFinite(item.grams) || item.grams <= 0 || ![item.nutrition.kcal, item.nutrition.protein, item.nutrition.carbs, item.nutrition.fat].every(value => Number.isFinite(value) && value >= 0))) throw new Error('Analiza a returnat valori nutriționale invalide. Reîncearcă sau introdu manual ingredientele.')
       setItems(analyzed)
       if (data.description) setDescription(String(data.description))
       setAnalysisNote(String(data.uncertainty ?? 'Valorile sunt estimative. Verifică ingredientele și gramajele înainte de salvare.'))
