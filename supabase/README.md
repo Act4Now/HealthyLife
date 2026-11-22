@@ -6,9 +6,17 @@ Supabase provides authentication, PostgreSQL and private photo storage. Apply al
 Create a project in the Supabase dashboard and keep the project URL and publishable/anon key available. Never use the `service_role` key in this frontend.
 
 ## 2. Apply the database migration
-In Supabase, open **SQL Editor → New query**, paste the contents of:
-`migrations/202611220001_profiles.sql`, then `migrations/202611220002_meal_logs.sql`, then `migrations/202611220003_wellness_trackers.sql`, then `migrations/202611220004_personalization_and_meals.sql`
-and run it.
+In Supabase, open **SQL Editor → New query** and apply every migration in filename order, one at a time:
+
+1. `migrations/202611220001_profiles.sql`
+2. `migrations/202611220002_meal_logs.sql`
+3. `migrations/202611220003_wellness_trackers.sql`
+4. `migrations/202611220004_personalization_and_meals.sql`
+5. `migrations/202611220005_v2_preferences_planner_and_suggestions.sql`
+6. `migrations/202611220006_onboarding_deferral.sql`
+7. `migrations/202611220007_meal_log_owner_updates.sql`
+
+Verify each query completes successfully before deploying frontend code that references its columns, tables, or policies. These migrations add schema and owner-scoped permissions; they do not delete existing user records.
 
 The migration creates `public.profiles`, creates a profile for each new Auth user, and enables Row Level Security. A signed-in user can select and update only the row whose ID equals `auth.uid()`.
 
@@ -57,6 +65,8 @@ The photo-analysis feature is not production-ready until the function is deploye
 ## 7. Personalized profile and meal schema
 Apply `migrations/202611220004_personalization_and_meals.sql` after the first three migrations. It adds profile measurements and preferences, dated daily targets (all days, weekdays, weekends), custom foods, custom recipes, meal plans, weight goal dates and weigh-in reminder preferences. It also grants owners update/delete access to their own weight entries under RLS.
 
-The new onboarding and target editor is available under **Settings → Profil și obiective personale**. Suggested calorie and water values are rough starting estimates, not medical recommendations. Users should review and edit them before relying on them. The new tables do not rewrite existing history.
+The onboarding flow is shown automatically when a signed-in profile has not completed setup or has no daily-target records. The user can defer it; `onboarding_skipped_at` records that choice separately from `onboarding_completed_at`. Setup can be resumed under **Settings → Profil și obiective personale**. The first step stores height and weight in canonical cm/kg; the UI converts to/from decimal feet and pounds. Suggested calorie and water values are estimates, not medical recommendations, and are shown as proposed goals rather than measurements.
 
-The current frontend does not yet complete every product requirement: custom-food/recipe CRUD and favorites, full meal-week planner and reminder delivery, offline synchronization, data export/account deletion, full dashboard personalization, and complete accessibility/theme controls still require implementation and end-to-end testing.
+The meal journal supports date-based history, copying a meal or a complete previous day, and owner-only correction/deletion. Custom foods support editing, deletion and favorites. Custom recipes support per-serving nutrition calculation, editing and deletion. Migration 007 adds the owner-only `UPDATE` policy required by meal editing.
+
+These code changes still require all seven migrations to be applied in the target Supabase project and authenticated end-to-end verification before production use. The remaining v2 requirements (weekly planner, notification delivery/snooze, 14-day progress suggestions, configurable dashboard, and complete preferences/offline/accessibility behavior) remain outside this implementation batch.
