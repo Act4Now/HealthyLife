@@ -126,13 +126,14 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
   }
 
   function loadCustomRecipe(recipe: CustomRecipe) {
+    setEditingRecipeId(null); setEditingMealId(null)
     setItems((recipe.ingredients ?? []).map((item, index) => ({ ...item, id: Date.now() + index })))
     setDescription(recipe.name)
     setMessage('Rețeta a fost încărcată în jurnal. Verifică gramajele înainte de salvare.')
   }
 
   function editCustomRecipe(recipe: CustomRecipe) {
-    setEditingRecipeId(recipe.id); setRecipeName(recipe.name); setRecipeServings(recipe.servings)
+    setEditingMealId(null); setEditingRecipeId(recipe.id); setRecipeName(recipe.name); setRecipeServings(recipe.servings)
     setItems((recipe.ingredients ?? []).map((item, index) => ({ ...item, id: Date.now() + index })))
     setMessage('Editezi rețeta. Modifică ingredientele și apoi salvează rețeta.')
   }
@@ -177,11 +178,12 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
     const { error } = await supabase.from('meal_logs').insert(rows)
     if (error) { setMessage('Nu am putut copia ziua: ' + error.message); return }
     setLogDate(localDate())
-    setEditingMealId(null); setDescription(''); setItems([])
+    setEditingMealId(null); setEditingRecipeId(null); setDescription(''); setItems([])
     setMessage('Mesele zilei selectate au fost copiate în jurnalul de astăzi.')
   }
 
   function loadMealForEdit(log: MealLog) {
+    setEditingRecipeId(null)
     const saved = Array.isArray(log.ingredients) ? log.ingredients : []
     setEditingMealId(log.id); setDescription(log.description)
     setItems(saved.map((item, index) => ({ ...item, id: Date.now() + index })))
@@ -256,7 +258,9 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
         ? await supabase.from('meal_logs').update(payload).eq('id', editingMealId).eq('user_id', userId).select('id,description,calories_kcal,protein_g,carbohydrates_g,fat_g,ingredients,created_at').single()
         : await supabase.from('meal_logs').insert({ user_id: userId, ...payload }).select('id,description,calories_kcal,protein_g,carbohydrates_g,fat_g,ingredients,created_at').single()
       if (result.error) throw result.error
-      setLogs(current => editingMealId ? current.map(log => log.id === editingMealId ? result.data as MealLog : log) : [result.data as MealLog, ...current])
+      if (editingMealId) setLogs(current => current.map(log => log.id === editingMealId ? result.data as MealLog : log))
+      else if (logDate === localDate()) setLogs(current => [result.data as MealLog, ...current])
+      else setLogDate(localDate())
       setMessage(editingMealId ? 'Masa a fost actualizată.' : 'Masa a fost salvată în istoricul profilului.')
       setEditingMealId(null); setDescription(''); setPhoto(null); setPhotoPreview(''); setAnalysisNote(''); setPhotoConsent(false); setItems([])
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Nu am putut salva masa.') }
