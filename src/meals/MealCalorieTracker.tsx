@@ -161,6 +161,26 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
     setMessage('Înregistrarea mesei a fost ștearsă.')
   }
 
+  async function copySelectedDay() {
+    if (!supabase || !userId) { setMessage('Autentifică-te pentru a copia mesele.'); return }
+    if (!logs.length || logDate === localDate()) return
+    if (!window.confirm(`Copiază cele ${logs.length} mese din ${logDate} în jurnalul de astăzi?`)) return
+    const rows = logs.map(log => ({
+      user_id: userId,
+      description: log.description,
+      calories_kcal: log.calories_kcal,
+      protein_g: log.protein_g,
+      carbohydrates_g: log.carbohydrates_g,
+      fat_g: log.fat_g,
+      ingredients: log.ingredients ?? [],
+    }))
+    const { error } = await supabase.from('meal_logs').insert(rows)
+    if (error) { setMessage('Nu am putut copia ziua: ' + error.message); return }
+    setLogDate(localDate())
+    setEditingMealId(null); setDescription(''); setItems([])
+    setMessage('Mesele zilei selectate au fost copiate în jurnalul de astăzi.')
+  }
+
   function loadMealForEdit(log: MealLog) {
     const saved = Array.isArray(log.ingredients) ? log.ingredients : []
     setEditingMealId(log.id); setDescription(log.description)
@@ -293,7 +313,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       <div className="macro-row"><span>Proteine</span><strong>{totals.protein.toFixed(1)} g</strong><i><b style={{width: totals.kcal ? (totals.protein*4/totals.kcal*100)+'%' : '0%'}} /></i></div>
       <div className="macro-row"><span>Carbohidrați</span><strong>{totals.carbs.toFixed(1)} g</strong><i><b style={{width: totals.kcal ? (totals.carbs*4/totals.kcal*100)+'%' : '0%'}} /></i></div>
       <div className="macro-row"><span>Grăsimi</span><strong>{totals.fat.toFixed(1)} g</strong><i><b style={{width: totals.kcal ? (totals.fat*9/totals.kcal*100)+'%' : '0%'}} /></i></div>
-      <div className="meal-history-heading"><h4>Mesele zilei selectate</h4><label>Ziua <input type="date" value={logDate} onChange={e=>setLogDate(e.target.value)} /></label></div>
+      <div className="meal-history-heading"><h4>Mesele zilei selectate</h4><label>Ziua <input type="date" value={logDate} onChange={e=>setLogDate(e.target.value)} /></label>{logDate !== localDate() && logs.length > 0 && <button type="button" className="outline-button" onClick={()=>void copySelectedDay()}>Copiază toată ziua în astăzi</button>}</div>
       {logs.length ? logs.map(log => <div className="meal-log-row" key={log.id}><button type="button" className="meal-repeat" onClick={()=>loadMealForEdit(log)}>Editează</button><button type="button" className="meal-repeat" onClick={()=>{const saved=Array.isArray(log.ingredients)?log.ingredients:[];setEditingMealId(null);setItems(saved.map((item,index)=>({...item,id:Date.now()+index})));setDescription(log.description);setMessage('Masa a fost copiată în formular. Verifică data, ingredientele și gramajele înainte de a salva o înregistrare nouă.')}}>Copiază</button><span>{log.description}</span><strong>{log.calories_kcal} kcal</strong><button type="button" onClick={()=>void deleteMeal(log.id)} aria-label="Șterge masa">Șterge</button></div>) : <p className="empty-logs">Nu există mese salvate pentru această zi. Selectează o zi anterioară pentru a copia o masă.</p>}
     </section>
   </div>
