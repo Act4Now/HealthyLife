@@ -50,7 +50,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
   const [recipeName, setRecipeName] = useState('')
   const [photoConsent, setPhotoConsent] = useState(false)
   const totals = useMemo(() => items.reduce((sum, item) => {
-    const f = item.nutrition ?? foods[item.food]
+    const custom = customFoods.find(x => x.name === item.food); const f = item.nutrition ?? foods[item.food] ?? (custom ? { name: custom.name, kcal: Number(custom.calories_kcal) * 100 / Number(custom.serving_grams), protein: Number(custom.protein_g) * 100 / Number(custom.serving_grams), carbs: Number(custom.carbs_g) * 100 / Number(custom.serving_grams), fat: Number(custom.fat_g) * 100 / Number(custom.serving_grams) } : { name: item.food, kcal: 0, protein: 0, carbs: 0, fat: 0 })
     const factor = item.grams / 100
     return { kcal: sum.kcal + f.kcal * factor, protein: sum.protein + f.protein * factor, carbs: sum.carbs + f.carbs * factor, fat: sum.fat + f.fat * factor }
   }, { kcal: 0, protein: 0, carbs: 0, fat: 0 }), [items])
@@ -181,13 +181,37 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       <label className="calorie-label">Descrierea mesei
         <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex.: Piept de pui la grătar cu orez, avocado și roșii..." rows={3} />
       </label>
+      <details className="custom-food-editor">
+        <summary>＋ Creează aliment personal</summary>
+        <div className="custom-food-fields">
+          <input value={foodName} onChange={e=>setFoodName(e.target.value)} placeholder="Numele alimentului" maxLength={120}/>
+          <input value={foodServing} onChange={e=>setFoodServing(e.target.value)} placeholder="Denumirea porției"/>
+          <label>Gramaj porție (g)<input type="number" min="1" value={foodGrams} onChange={e=>setFoodGrams(Number(e.target.value))}/></label>
+          <label>kcal / porție<input type="number" min="0" value={foodKcal} onChange={e=>setFoodKcal(Number(e.target.value))}/></label>
+          <label>Proteine (g)<input type="number" min="0" value={foodProtein} onChange={e=>setFoodProtein(Number(e.target.value))}/></label>
+          <label>Carbohidrați (g)<input type="number" min="0" value={foodCarbs} onChange={e=>setFoodCarbs(Number(e.target.value))}/></label>
+          <label>Grăsimi (g)<input type="number" min="0" value={foodFat} onChange={e=>setFoodFat(Number(e.target.value))}/></label>
+          <button type="button" onClick={()=>void saveCustomFood()}>Salvează alimentul</button>
+        </div>
+        {customFoods.map(item=><div className="custom-food-row" key={item.id}><span>{item.name} · {item.serving_grams} g</span><button type="button" onClick={()=>void toggleFoodFavorite(item)}>{item.favorite?'★ Favorit':'☆ Favorit'}</button><button type="button" onClick={()=>void deleteCustomFood(item.id)}>Șterge</button></div>)}
+        {!customFoods.length && <p className="empty-logs">Alimentele create de tine vor apărea aici.</p>}
+      </details>
       <div className="ingredient-title"><strong>Ingrediente și cantități</strong><span>valori estimative / 100 g</span></div>
       <div className="ingredient-add">
-        <select value={food} onChange={e => setFood(e.target.value)}>{Object.keys(foods).map(name => <option key={name}>{name}</option>)}</select>
+        <select value={food} onChange={e => setFood(e.target.value)}>{Object.keys(foods).map(name => <option key={name}>{name}</option>)}{customFoods.length > 0 && <optgroup label="Alimentele mele">{customFoods.map(item => <option key={item.id} value={item.name}>{item.favorite ? '★ ' : ''}{item.name}</option>)}</optgroup>}</select>
         <input type="number" min="1" max="2000" value={grams} onChange={e => setGrams(Number(e.target.value))} aria-label="Grame" />
         <span>g</span><div className="portion-quick" aria-label="Mărimea porției">{[0.5,1,1.5,2].map(n=><button type="button" key={n} className={portion===n?'selected':''} onClick={()=>setPortion(n)}>{n===0.5?'½':n===1?'1':n===1.5?'1½':'2'}×</button>)}</div><button onClick={() => setItems(v => [...v, { id: Date.now(), food, grams: Math.max(1, Math.round(grams*portion)) }])}><Plus size={16} /> Adaugă</button>
       </div>
       <div className="ingredient-list">{items.map(item => <div key={item.id}><span>{item.food}</span><small>{item.grams} g · {Math.round((item.nutrition ?? foods[item.food]).kcal * item.grams / 100)} kcal</small><button aria-label="Șterge ingredientul" onClick={() => setItems(v => v.filter(x => x.id !== item.id))}><Trash2 size={15} /></button></div>)}</div>
+      <details className="custom-food-editor">
+        <summary>＋ Salvează rețeta ingredientelor curente</summary>
+        <div className="custom-food-fields">
+          <input value={recipeName} onChange={e=>setRecipeName(e.target.value)} placeholder="Numele rețetei" maxLength={160}/>
+          <button type="button" onClick={()=>void saveCustomRecipe()}>Salvează rețeta</button>
+        </div>
+        {customRecipes.map(recipe=><div className="custom-food-row" key={recipe.id}><span>{recipe.name} · {Math.round(recipe.calories_per_serving)} kcal / porție</span><button type="button" onClick={()=>loadCustomRecipe(recipe)}>Încarcă</button></div>)}
+        {!customRecipes.length && <p className="empty-logs">Rețetele salvate vor apărea aici.</p>}
+      </details>
       <label className="photo-drop"><ImagePlus size={19} /><span>{photo ? photo.name : 'Fotografia mesei (analizată temporar, nu este salvată)'}</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => attachPhoto(e.target.files?.[0])} /></label>
       {photoPreview && <><img className="meal-photo-preview" src={photoPreview} alt="Previzualizare locală a fotografiei mesei" /><label className="calorie-disclaimer"><input type="checkbox" checked={photoConsent} onChange={e => setPhotoConsent(e.target.checked)} /> Sunt de acord ca fotografia să fie transmisă către Google Gemini pentru analiză. HealthyLife nu o salvează. Pentru conturile Google AI gratuite, Google poate folosi conținutul transmis pentru îmbunătățirea produselor; consultă politica Google înainte de a continua.</label><button type="button" className="outline-button" onClick={() => void analyzePhoto()} disabled={analyzing || saving || !photoConsent}>{analyzing ? 'Se analizează fotografia…' : 'Analizează fotografia'}</button></>}
       {analysisNote && <p className="calorie-disclaimer">{analysisNote}</p>}
