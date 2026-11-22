@@ -30,7 +30,7 @@ const foods: Record<string, Food> = {
 export default function MealCalorieTracker({ userId }: { userId?: string }) {
   const [description, setDescription] = useState('')
   const [food, setFood] = useState('')
-  const [grams, setGrams] = useState(100)
+  const [grams, setGrams] = useState(0)
   const [portion, setPortion] = useState(1)
   const [items, setItems] = useState<Ingredient[]>([])
   const [photo, setPhoto] = useState<File | null>(null)
@@ -48,7 +48,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
   const [customRecipes, setCustomRecipes] = useState<CustomRecipe[]>([])
   const [foodName, setFoodName] = useState('')
   const [foodServing, setFoodServing] = useState('100 g')
-  const [foodGrams, setFoodGrams] = useState(100)
+  const [foodGrams, setFoodGrams] = useState(0)
   const [foodKcal, setFoodKcal] = useState(0)
   const [foodProtein, setFoodProtein] = useState(0)
   const [foodCarbs, setFoodCarbs] = useState(0)
@@ -94,7 +94,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       : await supabase.from('custom_foods').insert({ user_id: userId, ...payload }).select('*').single()
     if (result.error) { setMessage(result.error.message); return }
     setCustomFoods(current => (editingFoodId ? current.map(item => item.id === editingFoodId ? result.data as CustomFood : item) : [...current, result.data as CustomFood]).sort((a,b) => a.name.localeCompare(b.name)))
-    setEditingFoodId(null); setFoodName(''); setFoodServing('100 g'); setFoodGrams(100); setFoodKcal(0); setFoodProtein(0); setFoodCarbs(0); setFoodFat(0)
+    setEditingFoodId(null); setFoodName(''); setFoodServing('100 g'); setFoodGrams(0); setFoodKcal(0); setFoodProtein(0); setFoodCarbs(0); setFoodFat(0)
     setMessage(editingFoodId ? 'Alimentul personal a fost actualizat.' : 'Alimentul personal a fost salvat.')
   }
 
@@ -211,6 +211,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
         },
       }))
       if (!analyzed.length) throw new Error(data?.uncertainty || 'Nu am identificat alimente în fotografie. Încearcă o imagine mai clară.')
+      if (analyzed.some(item => !Number.isFinite(item.grams) || item.grams <= 0 || ![item.nutrition.kcal, item.nutrition.protein, item.nutrition.carbs, item.nutrition.fat].every(value => Number.isFinite(value) && value >= 0))) throw new Error('Analiza a returnat valori nutriționale invalide. Reîncearcă sau introdu manual ingredientele.')
       setItems(analyzed)
       if (data.description) setDescription(String(data.description))
       setAnalysisNote(String(data.uncertainty ?? 'Valorile sunt estimative. Verifică ingredientele și gramajele înainte de salvare.'))
@@ -221,7 +222,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
   }
 
   async function saveMeal() {
-    if (!description.trim() && items.length === 0) { setMessage('Adaugă o descriere sau ingrediente.'); return }
+    if (items.length === 0) { setMessage('Adaugă cel puțin un ingredient și gramajul acestuia înainte de salvare.'); return }
     setSaving(true); setMessage('')
     try {
       if (!supabase || !userId) { setMessage('Autentifică-te pentru a salva masa în istoricul personal.'); return }
@@ -253,7 +254,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
         <div className="custom-food-fields">
           <input value={foodName} onChange={e=>setFoodName(e.target.value)} placeholder="Numele alimentului" maxLength={120}/>
           <input value={foodServing} onChange={e=>setFoodServing(e.target.value)} placeholder="Denumirea porției"/>
-          <label>Gramaj porție (g)<input type="number" min="1" value={foodGrams} onChange={e=>setFoodGrams(Number(e.target.value))}/></label>
+          <label>Gramaj porție (g)<input type="number" min="1" value={foodGrams || ''} placeholder="ex. 100" onChange={e=>setFoodGrams(Number(e.target.value))}/></label>
           <label>kcal / porție<input type="number" min="0" value={foodKcal} onChange={e=>setFoodKcal(Number(e.target.value))}/></label>
           <label>Proteine (g)<input type="number" min="0" value={foodProtein} onChange={e=>setFoodProtein(Number(e.target.value))}/></label>
           <label>Carbohidrați (g)<input type="number" min="0" value={foodCarbs} onChange={e=>setFoodCarbs(Number(e.target.value))}/></label>
