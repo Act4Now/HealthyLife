@@ -27,6 +27,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
   const [description, setDescription] = useState('')
   const [food, setFood] = useState('Chicken breast')
   const [grams, setGrams] = useState(120)
+  const [portion, setPortion] = useState(1)
   const [items, setItems] = useState<Ingredient[]>([{ id: 1, food: 'Chicken breast', grams: 120 }, { id: 2, food: 'Rice, cooked', grams: 150 }])
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState('')
@@ -44,7 +45,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
 
   useEffect(() => {
     if (!supabase || !userId) return
-    supabase.from('meal_logs').select('id,description,calories_kcal,protein_g,carbohydrates_g,fat_g,created_at').order('created_at', { ascending: false }).limit(10)
+    supabase.from('meal_logs').select('id,description,calories_kcal,protein_g,carbohydrates_g,fat_g,ingredients,created_at').order('created_at', { ascending: false }).limit(10)
       .then(({ data, error }) => { if (error) setMessage(error.message); else setLogs((data ?? []) as MealLog[]) })
   }, [userId])
 
@@ -128,7 +129,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       <div className="ingredient-add">
         <select value={food} onChange={e => setFood(e.target.value)}>{Object.keys(foods).map(name => <option key={name}>{name}</option>)}</select>
         <input type="number" min="1" max="2000" value={grams} onChange={e => setGrams(Number(e.target.value))} aria-label="Grame" />
-        <span>g</span><button onClick={() => setItems(v => [...v, { id: Date.now(), food, grams: Math.max(1, grams) }])}><Plus size={16} /> Adaugă</button>
+        <span>g</span><div className="portion-quick" aria-label="Mărimea porției">{[0.5,1,1.5,2].map(n=><button type="button" key={n} className={portion===n?'selected':''} onClick={()=>setPortion(n)}>{n===0.5?'½':n===1?'1':n===1.5?'1½':'2'}×</button>)}</div><button onClick={() => setItems(v => [...v, { id: Date.now(), food, grams: Math.max(1, Math.round(grams*portion)) }])}><Plus size={16} /> Adaugă</button>
       </div>
       <div className="ingredient-list">{items.map(item => <div key={item.id}><span>{item.food}</span><small>{item.grams} g · {Math.round((item.nutrition ?? foods[item.food]).kcal * item.grams / 100)} kcal</small><button aria-label="Șterge ingredientul" onClick={() => setItems(v => v.filter(x => x.id !== item.id))}><Trash2 size={15} /></button></div>)}</div>
       <label className="photo-drop"><ImagePlus size={19} /><span>{photo ? photo.name : 'Fotografia mesei (analizată temporar, nu este salvată)'}</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => attachPhoto(e.target.files?.[0])} /></label>
@@ -144,8 +145,8 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       <div className="macro-row"><span>Proteine</span><strong>{totals.protein.toFixed(1)} g</strong><i><b style={{width: totals.kcal ? (totals.protein*4/totals.kcal*100)+'%' : '0%'}} /></i></div>
       <div className="macro-row"><span>Carbohidrați</span><strong>{totals.carbs.toFixed(1)} g</strong><i><b style={{width: totals.kcal ? (totals.carbs*4/totals.kcal*100)+'%' : '0%'}} /></i></div>
       <div className="macro-row"><span>Grăsimi</span><strong>{totals.fat.toFixed(1)} g</strong><i><b style={{width: totals.kcal ? (totals.fat*9/totals.kcal*100)+'%' : '0%'}} /></i></div>
-      <h4>Istoricul meselor</h4>
-      {logs.length ? logs.map(log => <div className="meal-log-row" key={log.id}><span>{log.description}</span><strong>{log.calories_kcal} kcal</strong></div>) : <p className="empty-logs">Mesele salvate vor apărea aici după configurarea bazei de date.</p>}
+      <h4>Mese recente · selectează pentru a repeta</h4>
+      {logs.length ? logs.map(log => <div className="meal-log-row" key={log.id}><button type="button" className="meal-repeat" onClick={()=>{const saved=Array.isArray((log as any).ingredients)?(log as any).ingredients:[];if(saved.length){setItems(saved.map((item:any,index:number)=>({id:Date.now()+index,food:String(item.food??item.name??'Ingredient'),grams:Number(item.grams??100),...(item.nutrition?{nutrition:item.nutrition}:{})})));setDescription(log.description);setMessage('Am copiat ingredientele mesei selectate. Verifică valorile înainte de salvare.')}else{setDescription(log.description);setMessage('Am copiat descrierea mesei. Adaugă ingredientele pentru calcul nutrițional.')}}}>Repetă</button><span>{log.description}</span><strong>{log.calories_kcal} kcal</strong></div>) : <p className="empty-logs">Mesele salvate vor apărea aici după configurarea bazei de date.</p>}
     </section>
   </div>
 }
