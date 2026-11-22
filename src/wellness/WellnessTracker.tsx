@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 import { Activity, Plus, Trash2, Droplets, Pill, Weight, Save } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -38,7 +39,6 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
       supabase.from('medications').select('id,name,dose,schedule,notes').eq('active', true).order('created_at'),
       supabase.from('medication_logs').select('id,medication_id,taken_at,status').order('taken_at', { ascending: false }).limit(100),
       supabase.from('weight_logs').select('id,weight_kg,measured_at,notes').order('measured_at', { ascending: true }).limit(100),
-      Promise.resolve({ data: null, error: null }),
     ])
     const errors = [w.error, g.error, m.error, ml.error, wt.error].filter(Boolean)
     if (errors.length) setMessage(errors[0]?.message ?? 'Nu s-au putut încărca datele.')
@@ -73,7 +73,7 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
     setMessage(error?.message ?? 'Obiectivul de hidratare a fost actualizat.'); setBusy(false)
   }
 
-  async function addMedication(e: React.FormEvent) {
+  async function addMedication(e: FormEvent) {
     e.preventDefault()
     if (!supabase || !userId) return setMessage('Autentifică-te pentru a salva medicamentele.')
     if (!medName.trim() || !medDose.trim()) return setMessage('Completează numele și doza.')
