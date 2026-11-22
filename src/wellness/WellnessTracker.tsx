@@ -129,7 +129,7 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
   const chart = useMemo(() => {
     if (weightLogs.length < 2) return null
     const values = weightLogs.slice(-12)
-    const rolling = values.map((entry,index) => {
+    const rolling = values.map((_,index) => {
       const window = values.slice(Math.max(0,index-6),index+1)
       return window.reduce((sum,item)=>sum+Number(item.weight_kg),0)/window.length
     })
