@@ -63,11 +63,12 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
   const latestWeight = weightLogs.at(-1)
   const title = module === 'hydration' ? 'Hidratare' : module === 'medication' ? 'Medicamente' : 'Greutate'
 
-  async function saveWater(amount = newWater) {
+  async function saveWater(amount: number | string = newWater) {
     if (!supabase || !userId) return setMessage('Autentifică-te pentru a salva înregistrările.')
-    if (!Number.isFinite(amount) || amount < 1 || amount > 5000) return setMessage('Introdu o cantitate între 1 și 5.000 ml.')
+    const numericAmount = Number(amount)
+    if (!Number.isFinite(numericAmount) || numericAmount < 1 || numericAmount > 5000) return setMessage('Introdu o cantitate între 1 și 5.000 ml.')
     setBusy(true); setMessage('')
-    const { error } = await supabase.from('hydration_logs').insert({ user_id: userId, amount_ml: Math.round(amount) })
+    const { error } = await supabase.from('hydration_logs').insert({ user_id: userId, amount_ml: Math.round(numericAmount) })
     if (error) setMessage(error.message); else { setNewWater(''); await load(); setMessage('Cantitatea de apă a fost salvată.') }
     setBusy(false)
   }
@@ -154,7 +155,7 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
     {module === 'hydration' && <section className="panel wellness-panel">
       <div className="panel-heading"><div><h3><Droplets size={19} /> Hidratare zilnică</h3><p>Înregistrează apa consumată și urmărește obiectivul zilnic</p></div></div>
       <div className="wellness-total"><strong>{waterToday.toLocaleString('ro-RO')}</strong><span>{numericWaterGoal > 0 ? ' / ' + numericWaterGoal.toLocaleString('ro-RO') + ' ml' : ' ml · obiectiv neconfigurat'}</span></div>
-      <div className="wellness-progress"><span style={{ width: numericWaterGoal > 0 ? Math.min(100, waterToday / numericWaterGoal * 100) : 0 + '%' }} /></div>
+      <div className="wellness-progress"><span style={{ width: numericWaterGoal > 0 ? Math.min(100, waterToday / numericWaterGoal * 100) + '%' : '0%' }} /></div>
       <p>{numericWaterGoal > 0 ? Math.max(0, numericWaterGoal - waterToday).toLocaleString('ro-RO') + ' ml până la obiectiv · ' + Math.round(waterToday / numericWaterGoal * 100) + '%' : 'Configurează un obiectiv pentru a urmări progresul.'}</p>
       <div className="wellness-actions">{[150, 250, 500].map(n => <button key={n} disabled={busy} onClick={() => void saveWater(n)}>+{n} ml</button>)}</div>
       <div className="wellness-inline"><label>Cantitate personalizată (ml)<input type="number" min="1" max="5000" value={newWater} placeholder="ex. 250" onChange={e => setNewWater(e.target.value)} /></label><button disabled={busy} onClick={() => void saveWater()}><Plus size={16}/> Adaugă apă</button></div>
