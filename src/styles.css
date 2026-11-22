@@ -138,3 +138,8 @@
 .target-row label input{width:18px;height:18px;accent-color:#4f8b5d}
 .target-row>input:disabled{opacity:.45;background:#f2f4f2}
 @media(max-width:560px){.personal-goals{padding:16px}.goal-grid,.goal-suggestions{grid-template-columns:1fr}.target-row{grid-template-columns:1fr 100px}.goal-actions .full-button{width:100%}}
+
+
+.weight-row-actions{display:inline-flex;gap:6px;flex-wrap:wrap}
+.weight-row-actions button{border:1px solid #dce6df;background:#fff;border-radius:7px;padding:6px 8px;color:#54715b;font-size:.78rem;cursor:pointer}
+.weight-chart-legend{font-size:.78rem;line-height:1.5;color:var(--muted,#718078)}
