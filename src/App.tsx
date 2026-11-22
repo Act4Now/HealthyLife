@@ -9,6 +9,7 @@ import { useAuth } from './auth/AuthProvider'
 import AuthPanel from './auth/AuthPanel'
 import MealCalorieTracker from './meals/MealCalorieTracker'
 import WellnessTracker from './wellness/WellnessTracker'
+import HistoryTracker from './history/HistoryTracker'
 
 type Language = 'ro' | 'en'
 type Task = { id: number; label: string; time: string; done: boolean; kind: 'medicine' | 'meal' }
@@ -82,12 +83,12 @@ function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
     <aside className="sidebar">
       <a className="brand" href="#dashboard" onClick={() => setActive('dashboard')}>
         <span className="brand-mark"><Leaf size={22} /></span>
-        <span><strong>HealthyLife</strong><small>AI WELLNESS COMPANION</small></span>
+        <span><strong>HealthyLife</strong><small>WELLNESS COMPANION</small></span>
       </a>
       <div className="profile-mini">
         <div className="avatar">A</div>
         <div><strong>{auth.profile?.display_name || t.greetingName}</strong><small>{auth.configured ? auth.user?.email : 'Demo profile'}</small></div>
-        <button className="icon-button" aria-label={t.settings}><Settings size={17} /></button>
+        <button className="icon-button" aria-label={t.settings} title={t.settings} onClick={() => setActive("settings")}><Settings size={17} /></button>
       </div>
       <p className="nav-label">{t.nav}</p>
       <nav className="side-nav">
@@ -99,19 +100,19 @@ function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
         })}
       </nav>
       <div className="sidebar-bottom">
-        <div className="support-card"><CircleHelp size={18} /><strong>{t.help}</strong><span>?</span></div>
+        <button className="support-card" type="button" onClick={() => setActive("help")}><CircleHelp size={18} /><strong>{t.help}</strong><span>?</span></button>
         <div className="privacy-note"><ShieldCheck size={16} /><span>{lang === 'ro' ? 'Demo fără date personale' : 'Demo — no personal data'}</span></div>
       </div>
     </aside>
 
     <main className="main-content">
       <header className="topbar">
-        <div className="mobile-brand"><Leaf size={20} /> HealthyLife AI</div>
+        <div className="mobile-brand"><Leaf size={20} /> HealthyLife</div>
         <div className="date-label"><CalendarDays size={16} />{date}</div>
         <div className="top-actions">
           {!auth.configured && <span className="demo-pill"><span /> DEMO</span>}
           <button className="language-button" onClick={() => setLang(lang === 'ro' ? 'en' : 'ro')}><Languages size={17} />{lang.toUpperCase()}</button>
-          <button className="icon-button notification-button" aria-label="Notifications"><Bell size={18} /></button>
+          <button className="icon-button notification-button" aria-label="Medicamente" title="Medicamente" onClick={() => setActive("medication")}><Bell size={18} /></button>
           {auth.configured && auth.user ? <button className="language-button" onClick={() => void auth.signOut()}>Ieșire</button> : <div className="avatar small">A</div>}
         </div>
       </header>
@@ -123,7 +124,7 @@ function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
 
       <div className="section-heading">
         <div><h2>{active === 'dashboard' ? t.overview : selectedTitle}</h2><p>{t.progress}</p></div>
-        <button className="outline-button"><CalendarDays size={16} />{t.today}</button>
+        <button className="outline-button" onClick={() => setActive("history")}><CalendarDays size={16} />{t.history}</button>
       </div>
 
       {active === 'dashboard' ? <>
@@ -187,15 +188,15 @@ function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
             <div className="meal-feature"><div className="meal-emoji">🥗</div><div><span className="meal-time">13:00 · {t.lunch}</span><strong>{lang === 'ro' ? 'Bol mediteranean cu năut' : 'Mediterranean chickpea bowl'}</strong><small>{lang === 'ro' ? 'Năut · legume · dressing de iaurt' : 'Chickpeas · vegetables · yogurt dressing'}</small></div><ChevronRight size={18} /></div>
             <button className="full-button" onClick={() => setActive('recipes')}><Sparkles size={16} />{lang === 'ro' ? 'Descoperă rețete' : 'Explore recipes'}</button>
           </article>
-          <article className="inspiration-card"><div className="inspiration-icon"><Leaf size={20} /></div><p>{t.tipTitle}</p><h3>“{t.tip}”</h3><span>— HealthyLife AI</span><div className="inspiration-decoration">✳</div></article>
+          <article className="inspiration-card"><div className="inspiration-icon"><Leaf size={20} /></div><p>{t.tipTitle}</p><h3>“{t.tip}”</h3><span>— HealthyLife</span><div className="inspiration-decoration">✳</div></article>
         </section>
-      </> : active === 'meals' ? <MealCalorieTracker userId={auth.user?.id} /> : active === 'hydration' || active === 'medication' || active === 'weight' ? <WellnessTracker module={active as 'hydration' | 'medication' | 'weight'} userId={auth.user?.id} /> : <section className="panel placeholder-panel">
+      </> : active === 'meals' ? <MealCalorieTracker userId={auth.user?.id} /> : active === 'history' ? <HistoryTracker userId={auth.user?.id} /> : active === 'hydration' || active === 'medication' || active === 'weight' ? <WellnessTracker module={active as 'hydration' | 'medication' | 'weight'} userId={auth.user?.id} /> : active === 'settings' ? <section className="panel placeholder-panel"><div className="placeholder-icon"><Settings size={25}/></div><h3>{t.settings}</h3><p>{auth.user?.email ?? (lang === 'ro' ? 'Folosești profilul demonstrativ.' : 'You are using the demo profile.')}</p><button className="outline-button" onClick={() => setLang(lang === 'ro' ? 'en' : 'ro')}><Languages size={16}/>{lang === 'ro' ? 'Schimbă limba în English' : 'Schimbă limba în română'}</button>{auth.configured && auth.user && <button className="outline-button" onClick={() => void auth.signOut()}>{lang === 'ro' ? 'Deconectare' : 'Sign out'}</button>}</section> : active === 'help' ? <section className="panel placeholder-panel"><div className="placeholder-icon"><CircleHelp size={25}/></div><h3>{t.help}</h3><p>{lang === 'ro' ? 'Alege un modul din meniul lateral. Folosește Istoric pentru a selecta o zi și a consulta înregistrările salvate în profil. Pentru date personale, autentifică-te.' : 'Choose a module from the sidebar. Use History to select a day and review entries saved to your profile. Sign in to use personal data.'}</p><button className="outline-button" onClick={() => setActive('history')}><CalendarDays size={16}/>{t.history}</button></section> : <section className="panel placeholder-panel">
         <div className="placeholder-icon"><Sparkles size={25} /></div><h3>{selectedTitle}</h3>
         <p>{lang === 'ro' ? 'Acest modul este inclus în planul MVP și va fi dezvoltat în următoarea etapă.' : 'This module is included in the MVP plan and will be developed in the next iteration.'}</p>
         <span className="coming-soon">{lang === 'ro' ? 'În dezvoltare' : 'Coming next'}</span>
       </section>}
 
-      <footer className="footer-note"><ShieldCheck size={15} />{t.demo}<span>HealthyLife AI · v1.0.2</span></footer>
+      <footer className="footer-note"><ShieldCheck size={15} />{t.demo}<span>HealthyLife · v1.0.2</span></footer>
     </main>
   </div>
 }
