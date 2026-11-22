@@ -26,6 +26,9 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
   const [weightDate, setWeightDate] = useState(today())
   const [weightNotes, setWeightNotes] = useState('')
   const [goalWeight, setGoalWeight] = useState('')
+  const [goalDate, setGoalDate] = useState('')
+  const [weighReminder, setWeighReminder] = useState('weekly')
+  const [editingWeightId, setEditingWeightId] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -35,7 +38,7 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
     setLoading(true); setMessage('')
     const [w, g, m, ml, wt] = await Promise.all([
       supabase.from('hydration_logs').select('id,amount_ml,logged_at').order('logged_at', { ascending: false }).limit(100),
-      supabase.from('wellness_goals').select('hydration_goal_ml,weight_goal_kg').maybeSingle(),
+      supabase.from('wellness_goals').select('hydration_goal_ml,weight_goal_kg,weight_goal_date,weigh_in_reminder').maybeSingle(),
       supabase.from('medications').select('id,name,dose,schedule,notes').eq('active', true).order('created_at'),
       supabase.from('medication_logs').select('id,medication_id,taken_at,status').order('taken_at', { ascending: false }).limit(100),
       supabase.from('weight_logs').select('id,weight_kg,measured_at,notes').order('measured_at', { ascending: false }).limit(100),
@@ -48,6 +51,8 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
     setMedLogs((ml.data ?? []) as MedicationLog[])
     setWeightLogs([...((wt.data ?? []) as WeightLog[])].reverse())
     if (g.data?.weight_goal_kg) setGoalWeight(String(g.data.weight_goal_kg))
+    if (g.data?.weight_goal_date) setGoalDate(g.data.weight_goal_date)
+    if (g.data?.weigh_in_reminder) setWeighReminder(g.data.weigh_in_reminder)
     setLoading(false)
   }, [userId])
 
@@ -104,8 +109,11 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
     if (!supabase || !userId) return setMessage('Autentifică-te pentru a salva greutatea.')
     if (!Number.isFinite(value) || value < 20 || value > 500) return setMessage('Introdu o greutate validă între 20 și 500 kg.')
     setBusy(true)
-    const { error } = await supabase.from('weight_logs').insert({ user_id: userId, weight_kg: value, measured_at: new Date(weightDate + 'T12:00:00').toISOString(), notes: weightNotes.trim() })
-    if (error) setMessage(error.message); else { setWeightValue(''); setWeightNotes(''); await load(); setMessage('Greutatea a fost înregistrată.') }
+    const payload = { weight_kg: value, measured_at: new Date(weightDate + 'T12:00:00').toISOString(), notes: weightNotes.trim() }
+    const { error } = editingWeightId
+      ? await supabase.from('weight_logs').update(payload).eq('id', editingWeightId).eq('user_id', userId)
+      : await supabase.from('weight_logs').insert({ user_id: userId, ...payload })
+    if (error) setMessage(error.message); else { setWeightValue(''); setWeightNotes(''); setEditingWeightId(null); setWeightDate(today()); await load(); setMessage(editingWeightId ? 'Măsurătoarea a fost actualizată.' : 'Greutatea a fost înregistrată.') }
     setBusy(false)
   }
 
@@ -114,7 +122,7 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
     const value = goalWeight ? Number(goalWeight) : null
     if (value !== null && (!Number.isFinite(value) || value < 20 || value > 500)) return setMessage('Obiectivul trebuie să fie între 20 și 500 kg.')
     setBusy(true)
-    const { error } = await supabase.from('wellness_goals').upsert({ user_id: userId, weight_goal_kg: value }, { onConflict: 'user_id' })
+    const { error } = await supabase.from('wellness_goals').upsert({ user_id: userId, weight_goal_kg: value, weight_goal_date: goalDate || null, weigh_in_reminder: weighReminder }, { onConflict: 'user_id' })
     setMessage(error?.message ?? 'Obiectivul de greutate a fost salvat.'); setBusy(false)
   }
 
@@ -156,9 +164,9 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
     {module === 'weight' && <><section className="panel wellness-panel">
       <div className="panel-heading"><div><h3><Weight size={19}/> Monitorizarea greutății</h3><p>Înregistrează măsurători și urmărește evoluția</p></div></div>
       <div className="wellness-total"><strong>{latestWeight ? latestWeight.weight_kg.toLocaleString('ro-RO') : '—'}</strong><span> kg · ultima măsurătoare</span></div>
-      <form className="wellness-form" onSubmit={saveWeight}><label>Greutate (kg)<input type="number" step="0.1" min="20" max="500" value={weightValue} onChange={e => setWeightValue(e.target.value)} placeholder="Ex.: 74.5" required/></label><label>Data măsurătorii<input type="date" value={weightDate} max={today()} onChange={e => setWeightDate(e.target.value)}/></label><label>Note (opțional)<input value={weightNotes} onChange={e => setWeightNotes(e.target.value)} placeholder="Observații"/></label><button disabled={busy}><Plus size={16}/> Salvează măsurătoarea</button></form>
-      <div className="wellness-inline"><label>Obiectiv (kg)<input type="number" step="0.1" min="20" max="500" value={goalWeight} onChange={e => setGoalWeight(e.target.value)} placeholder="Opțional"/></label><button disabled={busy} onClick={() => void saveWeightGoal()}><Save size={16}/> Salvează obiectiv</button></div>
-    </section><section className="panel wellness-panel"><h3><Activity size={19}/> Evoluția greutății</h3>{chart ? <><svg viewBox="0 0 100 100" role="img" aria-label="Grafic evoluție greutate" className="weight-chart"><polyline points={chart.points} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>{chart.points.split(' ').map((p,i) => { const [x,y] = p.split(','); return <circle key={i} cx={x} cy={y} r="1.8" fill="currentColor"/> })}</svg><div className="wellness-row"><span>Prima din selecție: {chart.values[0].weight_kg} kg</span><strong>Ultima: {chart.values.at(-1)?.weight_kg} kg</strong></div></> : <p>Adaugă cel puțin două măsurători pentru a vedea graficul.</p>}<h4>Istoric măsurători</h4>{[...weightLogs].reverse().slice(0,30).map(x => <div className="wellness-row" key={x.id}><span>{new Date(x.measured_at).toLocaleDateString('ro-RO')} {x.notes ? '· '+x.notes : ''}</span><strong>{x.weight_kg} kg</strong></div>)}</section></>}
+      <form className="wellness-form" onSubmit={saveWeight}><label>Greutate (kg)<input type="number" step="0.1" min="20" max="500" value={weightValue} onChange={e => setWeightValue(e.target.value)} placeholder="Ex.: 74.5" required/></label><label>Data măsurătorii<input type="date" value={weightDate} max={today()} onChange={e => setWeightDate(e.target.value)}/></label><label>Note (opțional)<input value={weightNotes} onChange={e => setWeightNotes(e.target.value)} placeholder="Observații"/></label><button disabled={busy}><Plus size={16}/> {editingWeightId ? 'Actualizează măsurătoarea' : 'Salvează măsurătoarea'}</button>{editingWeightId && <button type="button" disabled={busy} onClick={()=>{setEditingWeightId(null);setWeightValue('');setWeightNotes('');setWeightDate(today())}}>Anulează editarea</button>}</form>
+      <div className="wellness-inline"><label>Obiectiv (kg)<input type="number" step="0.1" min="20" max="500" value={goalWeight} onChange={e => setGoalWeight(e.target.value)} placeholder="Opțional"/></label><label>Data țintă<input type="date" min={today()} value={goalDate} onChange={e=>setGoalDate(e.target.value)}/></label><label>Ritm notificări cântărire<select value={weighReminder} onChange={e=>setWeighReminder(e.target.value)}><option value="off">Dezactivate</option><option value="daily">Zilnic</option><option value="weekly">Săptămânal</option><option value="biweekly">La 2 săptămâni</option><option value="monthly">Lunar</option></select></label><button disabled={busy} onClick={() => void saveWeightGoal()}><Save size={16}/> Salvează obiectiv</button></div>
+    </section><section className="panel wellness-panel"><h3><Activity size={19}/> Evoluția greutății</h3>{chart ? <><svg viewBox="0 0 100 100" role="img" aria-label="Grafic evoluție greutate" className="weight-chart"><polyline points={chart.points} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round"/>{chart.points.split(' ').map((p,i) => { const [x,y] = p.split(','); return <circle key={i} cx={x} cy={y} r="1.8" fill="currentColor"/> })}</svg><div className="wellness-row"><span>Prima din selecție: {chart.values[0].weight_kg} kg</span><strong>Ultima: {chart.values.at(-1)?.weight_kg} kg</strong></div></> : <p>Adaugă cel puțin două măsurători pentru a vedea graficul.</p>}<h4>Istoric măsurători</h4>{[...weightLogs].reverse().slice(0,30).map(x => <div className="wellness-row" key={x.id}><span>{new Date(x.measured_at).toLocaleDateString('ro-RO')} {x.notes ? '· '+x.notes : ''}</span><strong>{x.weight_kg} kg</strong><span className="weight-row-actions"><button type="button" disabled={busy} onClick={()=>{setEditingWeightId(x.id);setWeightValue(String(x.weight_kg));setWeightDate(localDateKey(new Date(x.measured_at)));setWeightNotes(x.notes)}}>Editează</button><button type="button" disabled={busy} onClick={async()=>{if(!window.confirm('Ștergi această măsurătoare?'))return;setBusy(true);const {error}=await supabase!.from('weight_logs').delete().eq('id',x.id).eq('user_id',userId);setMessage(error?.message??'Măsurătoarea a fost ștearsă.');await load();setBusy(false)}}>Șterge</button></span></div>)}</section></>}
     {message && <p className="calorie-message" role="status">{message}</p>}
   </div>
 }
