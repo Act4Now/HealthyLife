@@ -9,8 +9,7 @@ type Medication = { id: string; name: string; dose: string; schedule: string; no
 type MedicationLog = { id: string; medication_id: string; taken_at: string; status: string }
 type WeightLog = { id: string; weight_kg: number; measured_at: string; notes: string }
 
-const today = () => new Date().toISOString().slice(0, 10)
-const localDateTime = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) }
+const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
 
 export default function WellnessTracker({ module, userId }: { module: Module; userId?: string }) {
   const [waterLogs, setWaterLogs] = useState<WaterLog[]>([])
@@ -33,12 +32,12 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
   const load = useCallback(async () => {
     if (!supabase || !userId) { setLoading(false); return }
     setLoading(true); setMessage('')
-    const [w, g, m, ml, wt, goals] = await Promise.all([
+    const [w, g, m, ml, wt] = await Promise.all([
       supabase.from('hydration_logs').select('id,amount_ml,logged_at').order('logged_at', { ascending: false }).limit(100),
       supabase.from('wellness_goals').select('hydration_goal_ml,weight_goal_kg').maybeSingle(),
       supabase.from('medications').select('id,name,dose,schedule,notes').eq('active', true).order('created_at'),
       supabase.from('medication_logs').select('id,medication_id,taken_at,status').order('taken_at', { ascending: false }).limit(100),
-      supabase.from('weight_logs').select('id,weight_kg,measured_at,notes').order('measured_at', { ascending: true }).limit(100),
+      supabase.from('weight_logs').select('id,weight_kg,measured_at,notes').order('measured_at', { ascending: false }).limit(100),
     ])
     const errors = [w.error, g.error, m.error, ml.error, wt.error].filter(Boolean)
     if (errors.length) setMessage(errors[0]?.message ?? 'Nu s-au putut încărca datele.')
@@ -46,7 +45,7 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
     setWaterGoal(g.data?.hydration_goal_ml ?? 2000)
     setMedications((m.data ?? []) as Medication[])
     setMedLogs((ml.data ?? []) as MedicationLog[])
-    setWeightLogs((wt.data ?? []) as WeightLog[])
+    setWeightLogs([...((wt.data ?? []) as WeightLog[])].reverse())
     if (g.data?.weight_goal_kg) setGoalWeight(String(g.data.weight_goal_kg))
     setLoading(false)
   }, [userId])
