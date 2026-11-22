@@ -198,7 +198,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       const { data, error } = await supabase.functions.invoke('analyze-food-photo', { body: { image_base64: base64, mime_type: mime } })
       if (error) throw error
       if (data?.error) throw new Error(data.error)
-      const analyzed = (data?.ingredients ?? []).map((item: Record<string, unknown>, index: number) => ({
+      const analyzed: Ingredient[] = (data?.ingredients ?? []).map((item: Record<string, unknown>, index: number) => ({
         id: Date.now() + index,
         food: String(item.name),
         grams: Math.max(1, Math.round(Number(item.grams))),
