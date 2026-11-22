@@ -44,6 +44,6 @@ npm run preview
 ```
 
 ## Hosting and limitations
-GitHub Pages serves only the static frontend. Supabase supplies authentication and PostgreSQL. The current implementation includes Supabase-backed meal, hydration, medication and weight records with owner-scoped Row Level Security. AI image recognition, automated push notifications, complete export/deletion workflows and a full privacy/security review remain outstanding. Do not enter sensitive real health data until these safeguards and the applicable legal review are complete.
+GitHub Pages serves only the static frontend. Supabase supplies authentication and PostgreSQL. The current implementation includes Supabase-backed meal, hydration, medication and weight records with owner-scoped Row Level Security. Automated push notifications, complete export/deletion workflows and a full privacy/security review remain outstanding. Transient food-photo analysis is implemented behind a Supabase Edge Function but requires deployment and a Gemini API key; images are not saved by HealthyLife. See `supabase/README.md` for setup and third-party data-handling details. Do not enter sensitive real health data until these safeguards and the applicable legal review are complete.
 
 AI Free Forever integration remains disabled pending verification of an official, authorized API and its data-handling terms.
