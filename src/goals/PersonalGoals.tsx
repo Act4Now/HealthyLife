@@ -34,7 +34,6 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [loaded, setLoaded] = useState(false)
-  const [hasSavedTargets, setHasSavedTargets] = useState(false)
 
   const today = localDate()
   const todayKind = useMemo(() => {
@@ -65,7 +64,6 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
       const targetRows = t.data ?? []
       const selected = targetRows.find(row => row.day_type === todayKind) ?? targetRows.find(row => row.day_type === 'all')
       if (selected) {
-        setHasSavedTargets(true)
         setValues({ calories: selected.calories_kcal ?? 0, protein: selected.protein_g ?? 0, carbs: selected.carbs_g ?? 0, fat: selected.fat_g ?? 0, water: selected.water_ml ?? 0, steps: selected.steps ?? 0, sleep: selected.sleep_hours ?? 0 })
         setEnabled({ ...defaultsEnabled, ...(selected.enabled ?? {}) })
         setDayType(selected.day_type)
@@ -133,7 +131,7 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
       const { error } = await supabase.from('profiles').update({ onboarding_completed_at: new Date().toISOString(), onboarding_skipped_at: null }).eq('id', userId)
       if (error) { setMessage('Țintele au fost salvate, dar finalizarea onboardingului nu a putut fi înregistrată: ' + error.message); setBusy(false); return }
     }
-    setHasSavedTargets(true); setBusy(false)
+    setBusy(false)
     setMessage('Obiectivele au fost salvate. Datele istorice nu au fost modificate.')
     if (onboarding) onComplete?.()
   }
