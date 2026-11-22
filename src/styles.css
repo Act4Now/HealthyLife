@@ -91,3 +91,17 @@
 .wellness-med .danger-button{background:#fff0ed;color:#a94332}
 .weight-chart{width:100%;height:220px;color:#45966a;background:#f7faf8;border-radius:12px;margin:12px 0}
 @media(max-width:760px){.wellness-layout{grid-template-columns:1fr}.wellness-panel{padding:18px}.wellness-med{align-items:flex-start;flex-direction:column}.wellness-med .wellness-actions{justify-content:flex-start}.wellness-form{grid-template-columns:1fr}}
+
+
+/* Functional history controls and button semantics */
+.support-card{width:100%;border:0;text-align:left;font:inherit;cursor:pointer}
+.support-card:focus-visible,.outline-button:focus-visible,.history-date-controls button:focus-visible{outline:3px solid #8bbd94;outline-offset:2px}
+.history-date-controls{display:flex;align-items:end;gap:10px;flex-wrap:wrap;margin:20px 0 12px}
+.history-date-controls label{display:grid;gap:5px;flex:1;min-width:180px;color:var(--muted,#718078);font-size:.82rem}
+.history-date-controls input{width:100%;border:1px solid #dce6df;border-radius:9px;padding:10px;background:#fff;color:#26352e;font:inherit}
+.history-date-controls button{min-height:40px;min-width:40px;border:1px solid #dce6df;border-radius:9px;background:#fff;color:#426c50;display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:8px 11px;cursor:pointer}
+.history-date-controls button:disabled{opacity:.4;cursor:not-allowed}
+.history-date-controls .history-today{font-size:.85rem}
+.history-entry>div{display:grid;gap:4px}
+.history-entry>div strong{font-size:.92rem}
+.history-panel .panel-heading button{border:1px solid #e2eae2;background:#fff;color:#63866b;border-radius:9px;padding:8px;cursor:pointer}
