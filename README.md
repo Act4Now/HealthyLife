@@ -1,6 +1,6 @@
 # HealthyLife AI
 
-HealthyLife AI is a bilingual (Romanian / English) wellness companion. Version **1.0.2** is the Phase 2 authentication and profile implementation.
+HealthyLife AI is a bilingual (Romanian / English) wellness companion. Version **1.0.2** includes authentication, profiles, meal logging, hydration tracking, medication schedules and weight tracking.
 
 ## Version control
 - Current development version: `1.0.2`
@@ -44,6 +44,6 @@ npm run preview
 ```
 
 ## Hosting and limitations
-GitHub Pages serves only the static frontend. Supabase supplies authentication and PostgreSQL. In 1.0.2, sign-in/sign-up and profile bootstrap are implemented, but medication, hydration, meal, weight and history persistence are not yet implemented. Do not enter real health data until the complete data model, privacy controls, retention, export/deletion and security review are in place.
+GitHub Pages serves only the static frontend. Supabase supplies authentication and PostgreSQL. The current implementation includes Supabase-backed meal, hydration, medication and weight records with owner-scoped Row Level Security. AI image recognition, automated push notifications, complete export/deletion workflows and a full privacy/security review remain outstanding. Do not enter sensitive real health data until these safeguards and the applicable legal review are complete.
 
 AI Free Forever integration remains disabled pending verification of an official, authorized API and its data-handling terms.
