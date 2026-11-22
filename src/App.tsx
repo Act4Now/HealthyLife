@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Activity, CalendarDays, CircleHelp, Droplets, Heart, Languages, Leaf, Salad, Settings, ShieldCheck, TrendingDown, Utensils, Weight } from 'lucide-react'
+import { Activity, CalendarDays, CircleHelp, Droplets, Heart, Languages, Leaf, Salad, Settings, ShieldCheck, TrendingDown, Utensils } from 'lucide-react'
 import { useAuth } from './auth/AuthProvider'
 import AuthPanel from './auth/AuthPanel'
 import MealCalorieTracker from './meals/MealCalorieTracker'
@@ -95,7 +95,7 @@ function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
         <div><p className="eyebrow">{date}</p><h1>{t.welcome}</h1><p>{t.subtitle}</p></div>
       </section>
 
-      {auth.user && auth.profile && !auth.profile.onboarding_completed_at && !auth.profile.onboarding_skipped_at && <PersonalGoals userId={auth.user.id} onboarding onComplete={() => void auth.refreshProfile()} onSkip={() => void auth.refreshProfile()} />}
+      {auth.user && auth.profile && (!auth.profile.onboarding_completed_at || !auth.profile.has_daily_targets) && !auth.profile.onboarding_skipped_at && <PersonalGoals userId={auth.user.id} onboarding onComplete={() => void auth.refreshProfile()} onSkip={() => void auth.refreshProfile()} />}
 
       <div className="section-heading">
         <div><h2>{active === 'dashboard' ? t.overview : selectedTitle}</h2><p>{date}</p></div>
