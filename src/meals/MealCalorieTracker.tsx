@@ -8,6 +8,8 @@ type MealLog = { id: string; description: string; calories_kcal: number; protein
 type CustomFood = { id: string; name: string; serving_name: string; serving_grams: number; calories_kcal: number; protein_g: number; carbs_g: number; fat_g: number; favorite: boolean }
 type CustomRecipe = { id: string; name: string; servings: number; ingredients: Ingredient[]; calories_per_serving: number; protein_per_serving: number; carbs_per_serving: number; fat_per_serving: number }
 
+function localDate() { const now = new Date(); return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 10) }
+
 const foods: Record<string, Food> = {
   'Chicken breast': { name: 'Chicken breast', kcal: 165, protein: 31, carbs: 0, fat: 3.6 },
   'Rice, cooked': { name: 'Rice, cooked', kcal: 130, protein: 2.7, carbs: 28, fat: 0.3 },
@@ -34,6 +36,10 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState('')
   const [logs, setLogs] = useState<MealLog[]>([])
+  const [logDate, setLogDate] = useState(localDate())
+  const [editingMealId, setEditingMealId] = useState<string | null>(null)
+  const [editingFoodId, setEditingFoodId] = useState<string | null>(null)
+  const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
@@ -58,23 +64,38 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
 
   useEffect(() => {
     if (!supabase || !userId) return
-    Promise.all([supabase.from('custom_foods').select('*').order('favorite', { ascending: false }).order('name'), supabase.from('custom_recipes').select('*').order('name')]).then(([foodResult, recipeResult]) => {
+    Promise.all([
+      supabase.from('custom_foods').select('*').order('favorite', { ascending: false }).order('name'),
+      supabase.from('custom_recipes').select('*').order('name'),
+    ]).then(([foodResult, recipeResult]) => {
       if (foodResult.error) setMessage(foodResult.error.message)
       else setCustomFoods((foodResult.data ?? []) as CustomFood[])
       if (recipeResult.error) setMessage(recipeResult.error.message)
       else setCustomRecipes((recipeResult.data ?? []) as CustomRecipe[])
     })
-    supabase.from('meal_logs').select('id,description,calories_kcal,protein_g,carbohydrates_g,fat_g,ingredients,created_at').order('created_at', { ascending: false }).limit(10)
-      .then(({ data, error }) => { if (error) setMessage(error.message); else setLogs((data ?? []) as MealLog[]) })
   }, [userId])
+
+  useEffect(() => {
+    if (!supabase || !userId) return
+    const start = new Date(`${logDate}T00:00:00`)
+    const end = new Date(start.getTime() + 24 * 60 * 60 * 1000)
+    supabase.from('meal_logs').select('id,description,calories_kcal,protein_g,carbohydrates_g,fat_g,ingredients,created_at')
+      .eq('user_id', userId).gte('created_at', start.toISOString()).lt('created_at', end.toISOString())
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => { if (error) setMessage(error.message); else setLogs((data ?? []) as MealLog[]) })
+  }, [userId, logDate])
 
   async function saveCustomFood() {
     if (!supabase || !userId) { setMessage('Autentificarea este necesară pentru a salva alimente personale.'); return }
-    if (!foodName.trim() || foodGrams <= 0) { setMessage('Completează numele și gramajul porției.'); return }
-    const { data, error } = await supabase.from('custom_foods').insert({ user_id: userId, name: foodName.trim(), serving_name: foodServing.trim() || '100 g', serving_grams: foodGrams, calories_kcal: foodKcal, protein_g: foodProtein, carbs_g: foodCarbs, fat_g: foodFat }).select('*').single()
-    if (error) { setMessage(error.message); return }
-    setCustomFoods(current => [...current, data as CustomFood].sort((a,b) => a.name.localeCompare(b.name)))
-    setFoodName(''); setMessage('Alimentul personal a fost salvat.')
+    if (!foodName.trim() || !Number.isFinite(foodGrams) || foodGrams <= 0 || !Number.isFinite(foodKcal) || foodKcal <= 0 || [foodProtein, foodCarbs, foodFat].some(value => !Number.isFinite(value) || value < 0)) { setMessage('Completează numele, gramajul și valorile nutriționale valide (kcal trebuie să fie peste zero).'); return }
+    const payload = { name: foodName.trim(), serving_name: foodServing.trim() || '100 g', serving_grams: foodGrams, calories_kcal: foodKcal, protein_g: foodProtein, carbs_g: foodCarbs, fat_g: foodFat }
+    const result = editingFoodId
+      ? await supabase.from('custom_foods').update(payload).eq('id', editingFoodId).eq('user_id', userId).select('*').single()
+      : await supabase.from('custom_foods').insert({ user_id: userId, ...payload }).select('*').single()
+    if (result.error) { setMessage(result.error.message); return }
+    setCustomFoods(current => (editingFoodId ? current.map(item => item.id === editingFoodId ? result.data as CustomFood : item) : [...current, result.data as CustomFood]).sort((a,b) => a.name.localeCompare(b.name)))
+    setEditingFoodId(null); setFoodName(''); setFoodServing('100 g'); setFoodGrams(100); setFoodKcal(0); setFoodProtein(0); setFoodCarbs(0); setFoodFat(0)
+    setMessage(editingFoodId ? 'Alimentul personal a fost actualizat.' : 'Alimentul personal a fost salvat.')
   }
 
   async function toggleFoodFavorite(item: CustomFood) {
@@ -93,11 +114,15 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
 
   async function saveCustomRecipe() {
     if (!supabase || !userId) { setMessage('Autentificarea este necesară pentru a salva rețete.'); return }
-    if (!recipeName.trim() || !items.length || recipeServings <= 0) { setMessage('Adaugă un nume, cel puțin un ingredient și numărul de porții.'); return }
-    const { data, error } = await supabase.from('custom_recipes').insert({ user_id: userId, name: recipeName.trim(), servings: recipeServings, ingredients: items, calories_per_serving: totals.kcal / recipeServings, protein_per_serving: totals.protein / recipeServings, carbs_per_serving: totals.carbs / recipeServings, fat_per_serving: totals.fat / recipeServings }).select('*').single()
-    if (error) { setMessage(error.message); return }
-    setCustomRecipes(current => [...current, data as CustomRecipe].sort((a,b) => a.name.localeCompare(b.name)))
-    setRecipeName(''); setRecipeServings(1); setMessage('Rețeta a fost salvată; valorile sunt calculate per porție.')
+    if (!recipeName.trim() || !items.length || !Number.isFinite(recipeServings) || recipeServings <= 0 || !Number.isFinite(totals.kcal)) { setMessage('Adaugă un nume, ingrediente valide și numărul de porții.'); return }
+    const payload = { name: recipeName.trim(), servings: recipeServings, ingredients: items, calories_per_serving: totals.kcal / recipeServings, protein_per_serving: totals.protein / recipeServings, carbs_per_serving: totals.carbs / recipeServings, fat_per_serving: totals.fat / recipeServings }
+    const result = editingRecipeId
+      ? await supabase.from('custom_recipes').update(payload).eq('id', editingRecipeId).eq('user_id', userId).select('*').single()
+      : await supabase.from('custom_recipes').insert({ user_id: userId, ...payload }).select('*').single()
+    if (result.error) { setMessage(result.error.message); return }
+    setCustomRecipes(current => (editingRecipeId ? current.map(recipe => recipe.id === editingRecipeId ? result.data as CustomRecipe : recipe) : [...current, result.data as CustomRecipe]).sort((a,b) => a.name.localeCompare(b.name)))
+    setEditingRecipeId(null); setRecipeName(''); setRecipeServings(1)
+    setMessage(editingRecipeId ? 'Rețeta a fost actualizată.' : 'Rețeta a fost salvată; valorile sunt calculate per porție.')
   }
 
   function loadCustomRecipe(recipe: CustomRecipe) {
@@ -105,6 +130,44 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
     setDescription(recipe.name)
     setMessage('Rețeta a fost încărcată în jurnal. Verifică gramajele înainte de salvare.')
   }
+
+  function editCustomRecipe(recipe: CustomRecipe) {
+    setEditingRecipeId(recipe.id); setRecipeName(recipe.name); setRecipeServings(recipe.servings)
+    setItems((recipe.ingredients ?? []).map((item, index) => ({ ...item, id: Date.now() + index })))
+    setMessage('Editezi rețeta. Modifică ingredientele și apoi salvează rețeta.')
+  }
+
+  async function deleteCustomRecipe(id: string) {
+    if (!supabase || !userId) return
+    const { error } = await supabase.from('custom_recipes').delete().eq('id', id).eq('user_id', userId)
+    if (error) { setMessage(error.message); return }
+    setCustomRecipes(current => current.filter(recipe => recipe.id !== id))
+    if (editingRecipeId === id) setEditingRecipeId(null)
+    setMessage('Rețeta a fost ștearsă.')
+  }
+
+  function editCustomFood(item: CustomFood) {
+    setEditingFoodId(item.id); setFoodName(item.name); setFoodServing(item.serving_name); setFoodGrams(Number(item.serving_grams))
+    setFoodKcal(Number(item.calories_kcal)); setFoodProtein(Number(item.protein_g)); setFoodCarbs(Number(item.carbs_g)); setFoodFat(Number(item.fat_g))
+    setMessage('Editezi alimentul personal. Salvează pentru a aplica modificările.')
+  }
+
+  async function deleteMeal(id: string) {
+    if (!supabase || !userId) return
+    const { error } = await supabase.from('meal_logs').delete().eq('id', id).eq('user_id', userId)
+    if (error) { setMessage(error.message); return }
+    setLogs(current => current.filter(log => log.id !== id))
+    if (editingMealId === id) setEditingMealId(null)
+    setMessage('Înregistrarea mesei a fost ștearsă.')
+  }
+
+  function loadMealForEdit(log: MealLog) {
+    const saved = Array.isArray(log.ingredients) ? log.ingredients : []
+    setEditingMealId(log.id); setDescription(log.description)
+    setItems(saved.map((item, index) => ({ ...item, id: Date.now() + index })))
+    setMessage('Editezi masa selectată. Salvează pentru a actualiza înregistrarea existentă.')
+  }
+
 
   function attachPhoto(file?: File) {
     if (!file) return
@@ -162,16 +225,19 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
     setSaving(true); setMessage('')
     try {
       if (!supabase || !userId) { setMessage('Autentifică-te pentru a salva masa în istoricul personal.'); return }
-      const { data, error } = await supabase.from('meal_logs').insert({
-        user_id: userId, description: description.trim() || items.map(x => x.food).join(', '),
-        calories_kcal: Math.round(totals.kcal),
-        protein_g: Number(totals.protein.toFixed(1)), carbohydrates_g: Number(totals.carbs.toFixed(1)),
-        fat_g: Number(totals.fat.toFixed(1)), ingredients: items,
-      }).select('id,description,calories_kcal,protein_g,carbohydrates_g,fat_g,created_at').single()
-      if (error) throw error
-      setLogs(current => [data as MealLog, ...current])
-      setMessage('Masa a fost salvată în istoricul profilului.')
-      setDescription(''); setPhoto(null); setPhotoPreview(''); setAnalysisNote(''); setPhotoConsent(false); setItems([])
+      if (items.some(item => !Number.isFinite(item.grams) || item.grams <= 0)) { setMessage('Verifică gramajele ingredientelor înainte de salvare.'); return }
+      const payload = {
+        description: description.trim() || items.map(x => x.food).join(', '),
+        calories_kcal: Math.round(totals.kcal), protein_g: Number(totals.protein.toFixed(1)),
+        carbohydrates_g: Number(totals.carbs.toFixed(1)), fat_g: Number(totals.fat.toFixed(1)), ingredients: items,
+      }
+      const result = editingMealId
+        ? await supabase.from('meal_logs').update(payload).eq('id', editingMealId).eq('user_id', userId).select('id,description,calories_kcal,protein_g,carbohydrates_g,fat_g,ingredients,created_at').single()
+        : await supabase.from('meal_logs').insert({ user_id: userId, ...payload }).select('id,description,calories_kcal,protein_g,carbohydrates_g,fat_g,ingredients,created_at').single()
+      if (result.error) throw result.error
+      setLogs(current => editingMealId ? current.map(log => log.id === editingMealId ? result.data as MealLog : log) : [result.data as MealLog, ...current])
+      setMessage(editingMealId ? 'Masa a fost actualizată.' : 'Masa a fost salvată în istoricul profilului.')
+      setEditingMealId(null); setDescription(''); setPhoto(null); setPhotoPreview(''); setAnalysisNote(''); setPhotoConsent(false); setItems([])
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Nu am putut salva masa.') }
     finally { setSaving(false) }
   }
@@ -192,9 +258,9 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
           <label>Proteine (g)<input type="number" min="0" value={foodProtein} onChange={e=>setFoodProtein(Number(e.target.value))}/></label>
           <label>Carbohidrați (g)<input type="number" min="0" value={foodCarbs} onChange={e=>setFoodCarbs(Number(e.target.value))}/></label>
           <label>Grăsimi (g)<input type="number" min="0" value={foodFat} onChange={e=>setFoodFat(Number(e.target.value))}/></label>
-          <button type="button" onClick={()=>void saveCustomFood()}>Salvează alimentul</button>
+          <button type="button" onClick={()=>void saveCustomFood()}>{editingFoodId ? 'Actualizează alimentul' : 'Salvează alimentul'}</button>{editingFoodId && <button type="button" onClick={()=>{setEditingFoodId(null);setFoodName('');setFoodServing('100 g');setFoodGrams(100);setFoodKcal(0);setFoodProtein(0);setFoodCarbs(0);setFoodFat(0)}}>Anulează editarea</button>}
         </div>
-        {customFoods.map(item=><div className="custom-food-row" key={item.id}><span>{item.name} · {item.serving_grams} g</span><button type="button" onClick={()=>void toggleFoodFavorite(item)}>{item.favorite?'★ Favorit':'☆ Favorit'}</button><button type="button" onClick={()=>void deleteCustomFood(item.id)}>Șterge</button></div>)}
+        {customFoods.map(item=><div className="custom-food-row" key={item.id}><span>{item.name} · {item.serving_grams} g</span><button type="button" onClick={()=>void toggleFoodFavorite(item)}>{item.favorite?'★ Favorit':'☆ Favorit'}</button><button type="button" onClick={()=>editCustomFood(item)}>Editează</button><button type="button" onClick={()=>void deleteCustomFood(item.id)}>Șterge</button></div>)}
         {!customFoods.length && <p className="empty-logs">Alimentele create de tine vor apărea aici.</p>}
       </details>
       <div className="ingredient-title"><strong>Ingrediente și cantități</strong><span>valori estimative / 100 g</span></div>
@@ -208,15 +274,15 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
         <summary>＋ Salvează rețeta ingredientelor curente</summary>
         <div className="custom-food-fields">
           <input value={recipeName} onChange={e=>setRecipeName(e.target.value)} placeholder="Numele rețetei" maxLength={160}/><label>Număr de porții<input type="number" min="1" max="100" step="1" value={recipeServings} onChange={e=>setRecipeServings(Math.max(1,Number(e.target.value)))}/></label>
-          <button type="button" onClick={()=>void saveCustomRecipe()}>Salvează rețeta</button>
+          <button type="button" onClick={()=>void saveCustomRecipe()}>{editingRecipeId ? 'Actualizează rețeta' : 'Salvează rețeta'}</button>{editingRecipeId && <button type="button" onClick={()=>setEditingRecipeId(null)}>Anulează editarea</button>}
         </div>
-        {customRecipes.map(recipe=><div className="custom-food-row" key={recipe.id}><span>{recipe.name} · {Math.round(recipe.calories_per_serving)} kcal / porție</span><button type="button" onClick={()=>loadCustomRecipe(recipe)}>Încarcă</button></div>)}
+        {customRecipes.map(recipe=><div className="custom-food-row" key={recipe.id}><span>{recipe.name} · {Math.round(recipe.calories_per_serving)} kcal / porție</span><button type="button" onClick={()=>loadCustomRecipe(recipe)}>Încarcă</button><button type="button" onClick={()=>editCustomRecipe(recipe)}>Editează</button><button type="button" onClick={()=>void deleteCustomRecipe(recipe.id)}>Șterge</button></div>)}
         {!customRecipes.length && <p className="empty-logs">Rețetele salvate vor apărea aici.</p>}
       </details>
       <label className="photo-drop"><ImagePlus size={19} /><span>{photo ? photo.name : 'Fotografia mesei (analizată temporar, nu este salvată)'}</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => attachPhoto(e.target.files?.[0])} /></label>
       {photoPreview && <><img className="meal-photo-preview" src={photoPreview} alt="Previzualizare locală a fotografiei mesei" /><label className="calorie-disclaimer"><input type="checkbox" checked={photoConsent} onChange={e => setPhotoConsent(e.target.checked)} /> Sunt de acord ca fotografia să fie transmisă către Google Gemini pentru analiză. HealthyLife nu o salvează. Pentru conturile Google AI gratuite, Google poate folosi conținutul transmis pentru îmbunătățirea produselor; consultă politica Google înainte de a continua.</label><button type="button" className="outline-button" onClick={() => void analyzePhoto()} disabled={analyzing || saving || !photoConsent}>{analyzing ? 'Se analizează fotografia…' : 'Analizează fotografia'}</button></>}
       {analysisNote && <p className="calorie-disclaimer">{analysisNote}</p>}
-      <button className="save-meal-button" onClick={() => void saveMeal()} disabled={saving}><Save size={16} />{saving ? 'Se salvează…' : 'Salvează masa și valorile'}</button>
+      <button className="save-meal-button" onClick={() => void saveMeal()} disabled={saving}><Save size={16} />{saving ? 'Se salvează…' : editingMealId ? 'Actualizează masa' : 'Salvează masa și valorile'}</button>{editingMealId && <button type="button" className="outline-button" onClick={()=>{setEditingMealId(null);setDescription('');setItems([]);setMessage('Editarea a fost anulată.')}}>Anulează editarea</button>}
       {message && <p className="calorie-message" role="status">{message}</p>}
       <p className="calorie-disclaimer">Estimările din fotografie pot fi inexacte, mai ales pentru uleiuri, sosuri și ingrediente ascunse. Fotografia este transmisă temporar către Google Gemini numai după acordul tău. HealthyLife nu o încarcă în Supabase și nu o salvează în istoricul aplicației. Politica Google și condițiile planului API se aplică procesării externe. Corectează ingredientele și gramajele înainte de salvare.</p>
     </section>
@@ -226,8 +292,8 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       <div className="macro-row"><span>Proteine</span><strong>{totals.protein.toFixed(1)} g</strong><i><b style={{width: totals.kcal ? (totals.protein*4/totals.kcal*100)+'%' : '0%'}} /></i></div>
       <div className="macro-row"><span>Carbohidrați</span><strong>{totals.carbs.toFixed(1)} g</strong><i><b style={{width: totals.kcal ? (totals.carbs*4/totals.kcal*100)+'%' : '0%'}} /></i></div>
       <div className="macro-row"><span>Grăsimi</span><strong>{totals.fat.toFixed(1)} g</strong><i><b style={{width: totals.kcal ? (totals.fat*9/totals.kcal*100)+'%' : '0%'}} /></i></div>
-      <h4>Mese recente · selectează pentru a repeta</h4>
-      {logs.length ? logs.map(log => <div className="meal-log-row" key={log.id}><button type="button" className="meal-repeat" onClick={()=>{const saved=Array.isArray((log as any).ingredients)?(log as any).ingredients:[];if(saved.length){setItems(saved.map((item:any,index:number)=>({id:Date.now()+index,food:String(item.food??item.name??'Ingredient'),grams:Number(item.grams??100),...(item.nutrition?{nutrition:item.nutrition}:{})})));setDescription(log.description);setMessage('Am copiat ingredientele mesei selectate. Verifică valorile înainte de salvare.')}else{setDescription(log.description);setMessage('Am copiat descrierea mesei. Adaugă ingredientele pentru calcul nutrițional.')}}}>Repetă</button><span>{log.description}</span><strong>{log.calories_kcal} kcal</strong></div>) : <p className="empty-logs">Mesele salvate vor apărea aici după configurarea bazei de date.</p>}
+      <div className="meal-history-heading"><h4>Mesele zilei selectate</h4><label>Ziua <input type="date" value={logDate} onChange={e=>setLogDate(e.target.value)} /></label></div>
+      {logs.length ? logs.map(log => <div className="meal-log-row" key={log.id}><button type="button" className="meal-repeat" onClick={()=>loadMealForEdit(log)}>Editează</button><button type="button" className="meal-repeat" onClick={()=>{const saved=Array.isArray(log.ingredients)?log.ingredients:[];setEditingMealId(null);setItems(saved.map((item,index)=>({...item,id:Date.now()+index})));setDescription(log.description);setMessage('Masa a fost copiată în formular. Verifică data, ingredientele și gramajele înainte de a salva o înregistrare nouă.')}}>Copiază</button><span>{log.description}</span><strong>{log.calories_kcal} kcal</strong><button type="button" onClick={()=>void deleteMeal(log.id)} aria-label="Șterge masa">Șterge</button></div>) : <p className="empty-logs">Nu există mese salvate pentru această zi. Selectează o zi anterioară pentru a copia o masă.</p>}
     </section>
   </div>
 }
