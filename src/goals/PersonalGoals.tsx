@@ -69,9 +69,9 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
         setEnabled({ ...defaultsEnabled, ...(selected.enabled ?? {}) })
         setDayType(selected.day_type)
         setStep(2)
-      } else if (p.data?.onboarding_completed_at) {
+      } else if (p.data && p.data.height_cm != null && p.data.current_weight_kg != null) {
         setStep(2)
-        if (p.data.current_weight_kg != null) {
+        {
           const storedKg = Number(p.data.current_weight_kg)
           const storedActivity = (p.data.activity_level ?? 'moderate') as Activity
           const storedGoal = (p.data.weight_goal ?? 'maintain') as Goal
@@ -181,7 +181,7 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
       <div className="target-scope"><span>Aplică pentru</span><button type="button" className={dayType === 'all' ? 'selected' : ''} onClick={() => setDayType('all')}>Toate zilele</button><button type="button" className={dayType === 'weekday' ? 'selected' : ''} onClick={() => setDayType('weekday')}>Zile lucrătoare</button><button type="button" className={dayType === 'weekend' ? 'selected' : ''} onClick={() => setDayType('weekend')}>Weekend</button></div>
       <div className="target-editor">{keys.map(key => <div className="target-row" key={key}><label><input type="checkbox" checked={enabled[key]} onChange={e => setEnabled(v => ({ ...v, [key]: e.target.checked }))} /><span>{labels[key]}</span></label><input aria-label={labels[key]} type="number" min="0" step={key === 'sleep' ? 0.5 : 1} value={values[key] || ''} placeholder="Configurează valoarea" disabled={!enabled[key]} onChange={e => setValues(v => ({ ...v, [key]: e.target.value === '' ? 0 : Number(e.target.value) }))} /></div>)}</div>
       <p className="goal-note">Alege țintele pe care dorești să le urmărești. Valorile goale nu sunt salvate; țintele se aplică pentru ziua aleasă înainte și nu rescriu istoricul.</p>
-      <div className="goal-actions"><button type="button" className="text-button" onClick={() => setStep(1)}>Înapoi la profil</button><button type="button" className="full-button" disabled={busy} onClick={() => void saveTargets()}>Salvează țintele</button></div>
+      <div className="goal-actions">{onboarding && <button type="button" className="text-button" disabled={busy} onClick={() => void skipOnboarding()}>Amână configurarea</button>}<button type="button" className="text-button" onClick={() => setStep(1)}>Înapoi la profil</button><button type="button" className="full-button" disabled={busy} onClick={() => void saveTargets()}>Salvează țintele</button></div>
     </>}
     {message && <p className="calorie-message" role="status">{message}</p>}
   </section>
