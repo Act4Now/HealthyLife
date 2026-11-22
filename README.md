@@ -7,7 +7,7 @@ Demo bilingv (română / engleză) pentru urmărirea obiceiurilor de wellness.
 - Dashboard responsive
 - Schimbare limbă RO / EN
 - Interacțiuni demonstrative pentru rutina zilnică și hidratare
-- Workflow GitHub Actions pentru publicare pe GitHub Pages
+- GitHub Actions pentru verificare TypeScript, compilare Vite și publicare pe GitHub Pages
 - Documentație de arhitectură și limite de securitate
 
 ## Important
@@ -35,12 +35,9 @@ npm run preview
 ```
 
 ## Publicare GitHub Pages
-1. În repository-ul GitHub, deschide **Settings → Pages**.
+1. În repository, deschide **Settings → Pages**.
 2. La **Build and deployment → Source**, selectează **GitHub Actions**.
-3. Încarcă fișierele proiectului în branch-ul `main`.
-4. Workflow-ul `.github/workflows/pages.yml` va construi și publica aplicația.
+3. Workflow-ul `.github/workflows/pages.yml` rulează automat la fiecare push în `main`.
+4. Verifică job-urile **build** și **deploy** în fila **Actions**.
 
-URL estimat pentru repository-ul `Act4Now/HealthyLife`:
-https://act4now.github.io/HealthyLife/
-
-Dacă repository-ul are alt branch implicit, actualizează branch-ul urmărit în workflow.
+URL-ul proiectului: https://act4now.github.io/HealthyLife/
