@@ -95,6 +95,8 @@ function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
         <div><p className="eyebrow">{date}</p><h1>{t.welcome}</h1><p>{t.subtitle}</p></div>
       </section>
 
+      {auth.user && auth.profile && !auth.profile.onboarding_completed_at && !auth.profile.onboarding_skipped_at && <PersonalGoals userId={auth.user.id} onboarding onComplete={() => void auth.refreshProfile()} onSkip={() => void auth.refreshProfile()} />}
+
       <div className="section-heading">
         <div><h2>{active === 'dashboard' ? t.overview : selectedTitle}</h2><p>{date}</p></div>
         <button className="outline-button" onClick={() => setActive('history')}><CalendarDays size={16}/>{t.history}</button>
