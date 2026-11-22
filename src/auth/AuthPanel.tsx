@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { Leaf, ShieldCheck } from 'lucide-react'
 import { useAuth } from './AuthProvider'
 
@@ -11,7 +12,7 @@ export default function AuthPanel() {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBusy(true)
     setMessage('')
