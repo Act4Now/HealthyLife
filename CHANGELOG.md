@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.2 — Phase 2 (in development)
+## 1.0.2 — Phase 2 (release candidate)
 - Add Supabase Auth client configuration through Vite environment variables.
 - Add email/password sign-in and sign-up UI.
 - Add profile bootstrap and owner-scoped PostgreSQL schema with Row Level Security.
