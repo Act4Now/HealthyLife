@@ -47,8 +47,9 @@ This is not zero-transfer processing: the image is transmitted to Google for inf
 Deployment (requires Supabase CLI and a Gemini API key):
 ```sh
 supabase functions deploy analyze-food-photo
+supabase functions deploy generate-recipes
 supabase secrets set GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 ```
-Keep the key only as a Supabase Edge Function secret; never add it to `.env`, GitHub Pages secrets with a `VITE_` prefix, or browser code. The app's Supabase Edge Function invocation requires a signed-in user. If the secret is absent, the function returns a configuration error and no image analysis occurs.
+Keep the key only as a Supabase Edge Function secret; never add it to `.env`, GitHub Pages secrets with a `VITE_` prefix, or browser code. The app's Supabase Edge Function invocation requires a signed-in user. Both photo analysis and recipe generation use this same Edge Function secret. If the secret is absent, the function returns a configuration error and no image analysis occurs.
 
 The photo-analysis feature is not production-ready until the function is deployed, the secret is configured, and an authenticated end-to-end test succeeds.
