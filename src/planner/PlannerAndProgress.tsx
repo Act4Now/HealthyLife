@@ -98,7 +98,7 @@ export default function PlannerAndProgress({userId}:{userId?:string}) {
    waterRows.forEach(x=>grouped.set(x.logged_at.slice(0,10),(grouped.get(x.logged_at.slice(0,10))??0)+Number(x.amount_ml)))
    const avgWater=grouped.size?Math.round([...grouped.values()].reduce((a,b)=>a+b,0)/grouped.size):0
    const target=Number(targets.data?.[0]?.water_ml??0)
-   const rows:{suggestion_type:string;current_value:number;suggested_value:number;reason:string;user_id:string}[]=[]
+   const rows:{suggestion_type:string;current_value:number|null;suggested_value:number|null;reason:string;user_id:string}[]=[]
    if(avgWater>0&&target>0&&loggedWaterDays>=4&&avgWater<target*.75)rows.push({user_id:userId,suggestion_type:'water',current_value:target,suggested_value:Math.max(250,Math.round(avgWater/100)*100),reason:'În zilele cu înregistrări din ultimele 14 zile, media hidratării a fost de '+avgWater+' ml/zi, sub 75% din obiectivul setat. Verifică dacă vrei să ajustezi obiectivul.'})
    if(activeDays>=4&&activeDays<10)rows.push({user_id:userId,suggestion_type:'calories',current_value:activeDays,suggested_value:activeDays,reason:'Ai înregistrat mese în '+activeDays+' din ultimele 14 zile. Încearcă să notezi mesele mai consecvent înainte de a schimba obiectivele nutriționale.'})
    if(!rows.length)rows.push({user_id:userId,suggestion_type:'steps',current_value:null,suggested_value:null,reason:'Ai suficiente înregistrări pentru o revizuire, dar datele disponibile nu indică o ajustare clară. Continuă monitorizarea și verifică dacă obiectivele actuale rămân potrivite.'})
