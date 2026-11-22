@@ -10,7 +10,7 @@ type Enabled = Record<TargetKey, boolean>
 type Props = { userId?: string; onboarding?: boolean; onComplete?: () => void; onSkip?: () => void }
 
 const emptyTargets: TargetValues = { calories: 0, protein: 0, carbs: 0, fat: 0, water: 0, steps: 0, sleep: 0 }
-const defaultsEnabled: Enabled = { calories: true, protein: true, carbs: true, fat: true, water: true, steps: false, sleep: false }
+const defaultsEnabled: Enabled = { calories: true, protein: false, carbs: false, fat: false, water: true, steps: false, sleep: false }
 const labels: Record<TargetKey, string> = { calories: 'Calorii (kcal)', protein: 'Proteine (g)', carbs: 'Carbohidrați (g)', fat: 'Grăsimi (g)', water: 'Apă (ml)', steps: 'Pași', sleep: 'Somn (ore)' }
 const keys: TargetKey[] = ['calories', 'protein', 'carbs', 'fat', 'water', 'steps', 'sleep']
 
@@ -101,7 +101,9 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
     }).eq('id', userId)
     setBusy(false)
     if (error) { setMessage('Profilul nu a putut fi salvat: ' + error.message); return }
-    setMessage('Profilul a fost salvat. Configurează acum țintele zilnice.')
+    setValues({ calories: suggestedCalories ?? 0, protein: 0, carbs: 0, fat: 0, water: suggestedWater ?? 0, steps: 0, sleep: 0 })
+    setEnabled(defaultsEnabled)
+    setMessage('Profilul a fost salvat. Valorile propuse sunt obiective, nu măsurători; ajustează-le înainte de salvare.')
     setStep(2)
   }
 
