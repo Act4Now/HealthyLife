@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Camera, Flame, ImagePlus, Plus, Save, Trash2 } from 'lucide-react'
+import { Flame, ImagePlus, Plus, Save, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 type Food = { name: string; kcal: number; protein: number; carbs: number; fat: number }
