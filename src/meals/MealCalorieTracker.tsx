@@ -3,7 +3,7 @@ import { Flame, ImagePlus, Plus, Save, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 type Food = { name: string; kcal: number; protein: number; carbs: number; fat: number }
-type Ingredient = { id: number; food: string; grams: number }
+type Ingredient = { id: number; food: string; grams: number; nutrition?: Food }
 type MealLog = { id: string; description: string; calories_kcal: number; protein_g: number; carbohydrates_g: number; fat_g: number; created_at: string }
 
 const foods: Record<string, Food> = {
@@ -33,8 +33,10 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
   const [logs, setLogs] = useState<MealLog[]>([])
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
+  const [analyzing, setAnalyzing] = useState(false)
+  const [analysisNote, setAnalysisNote] = useState('')
   const totals = useMemo(() => items.reduce((sum, item) => {
-    const f = foods[item.food]
+    const f = item.nutrition ?? foods[item.food]
     const factor = item.grams / 100
     return { kcal: sum.kcal + f.kcal * factor, protein: sum.protein + f.protein * factor, carbs: sum.carbs + f.carbs * factor, fat: sum.fat + f.fat * factor }
   }, { kcal: 0, protein: 0, carbs: 0, fat: 0 }), [items])
@@ -50,8 +52,49 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { setMessage('Alege o fotografie JPG, PNG sau WebP.'); return }
     if (file.size > 5 * 1024 * 1024) { setMessage('Fotografia trebuie să fie sub 5 MB.'); return }
     setPhoto(file)
-    setPhotoPreview(URL.createObjectURL(file))
+    const reader = new FileReader()
+    reader.onload = () => setPhotoPreview(String(reader.result ?? ''))
+    reader.readAsDataURL(file)
+    setAnalysisNote('')
     setMessage('')
+  }
+
+  async function analyzePhoto() {
+    if (!photo || !supabase) { setMessage('Autentifică-te și selectează o fotografie pentru analiză.'); return }
+    setAnalyzing(true); setMessage(''); setAnalysisNote('')
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onerror = () => reject(new Error('Nu am putut citi fotografia.'))
+        reader.onload = () => resolve(String(reader.result ?? ''))
+        reader.readAsDataURL(photo)
+      })
+      const [header, base64] = dataUrl.split(',')
+      const mime = header.match(/^data:(image\/(?:jpeg|png|webp));base64$/)?.[1]
+      if (!mime || !base64) throw new Error('Formatul fotografiei nu este acceptat.')
+      const { data, error } = await supabase.functions.invoke('analyze-food-photo', { body: { image_base64: base64, mime_type: mime } })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      const analyzed = (data?.ingredients ?? []).map((item: Record<string, unknown>, index: number) => ({
+        id: Date.now() + index,
+        food: String(item.name),
+        grams: Math.max(1, Math.round(Number(item.grams))),
+        nutrition: {
+          name: String(item.name),
+          kcal: Number(item.kcal_per_100g),
+          protein: Number(item.protein_g_per_100g),
+          carbs: Number(item.carbs_g_per_100g),
+          fat: Number(item.fat_g_per_100g),
+        },
+      }))
+      if (!analyzed.length) throw new Error(data?.uncertainty || 'Nu am identificat alimente în fotografie. Încearcă o imagine mai clară.')
+      setItems(analyzed)
+      if (data.description) setDescription(String(data.description))
+      setAnalysisNote(String(data.uncertainty ?? 'Valorile sunt estimative. Verifică ingredientele și gramajele înainte de salvare.'))
+      setMessage('Analiza fotografiei s-a terminat. Verifică și corectează rezultatele.')
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Analiza fotografiei a eșuat.')
+    } finally { setAnalyzing(false) }
   }
 
   async function saveMeal() {
@@ -59,29 +102,23 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
     setSaving(true); setMessage('')
     try {
       if (!supabase || !userId) { setMessage('Mod demo: estimarea este afișată, dar salvarea în istoric necesită autentificare Supabase și migrarea SQL.'); return }
-      let photoPath: string | null = null
-      if (photo) {
-        photoPath = userId + '/' + crypto.randomUUID() + '-' + photo.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-        const { error: uploadError } = await supabase.storage.from('meal-photos').upload(photoPath, photo, { contentType: photo.type, upsert: false })
-        if (uploadError) throw uploadError
-      }
       const { data, error } = await supabase.from('meal_logs').insert({
         user_id: userId, description: description.trim() || items.map(x => x.food).join(', '),
-        photo_path: photoPath, calories_kcal: Math.round(totals.kcal),
+        calories_kcal: Math.round(totals.kcal),
         protein_g: Number(totals.protein.toFixed(1)), carbohydrates_g: Number(totals.carbs.toFixed(1)),
         fat_g: Number(totals.fat.toFixed(1)), ingredients: items,
       }).select('id,description,calories_kcal,protein_g,carbohydrates_g,fat_g,created_at').single()
       if (error) throw error
       setLogs(current => [data as MealLog, ...current])
       setMessage('Masa a fost salvată în istoricul profilului.')
-      setDescription(''); setPhoto(null); setPhotoPreview(''); setItems([])
+      setDescription(''); setPhoto(null); setPhotoPreview(''); setAnalysisNote(''); setItems([])
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Nu am putut salva masa.') }
     finally { setSaving(false) }
   }
 
   return <div className="calorie-layout">
     <section className="panel calorie-form">
-      <div className="panel-heading"><div><h3>Jurnal alimentar & calorii</h3><p>Descrie masa, adaugă ingredientele și atașează o fotografie</p></div><Flame className="calorie-flame" /></div>
+      <div className="panel-heading"><div><h3>Jurnal alimentar & calorii</h3><p>Descrie masa, adaugă ingredientele sau analizează o fotografie fără a o salva</p></div><Flame className="calorie-flame" /></div>
       <label className="calorie-label">Descrierea mesei
         <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Ex.: Piept de pui la grătar cu orez, avocado și roșii..." rows={3} />
       </label>
@@ -91,12 +128,13 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
         <input type="number" min="1" max="2000" value={grams} onChange={e => setGrams(Number(e.target.value))} aria-label="Grame" />
         <span>g</span><button onClick={() => setItems(v => [...v, { id: Date.now(), food, grams: Math.max(1, grams) }])}><Plus size={16} /> Adaugă</button>
       </div>
-      <div className="ingredient-list">{items.map(item => <div key={item.id}><span>{item.food}</span><small>{item.grams} g · {Math.round(foods[item.food].kcal * item.grams / 100)} kcal</small><button aria-label="Șterge ingredientul" onClick={() => setItems(v => v.filter(x => x.id !== item.id))}><Trash2 size={15} /></button></div>)}</div>
-      <label className="photo-drop"><ImagePlus size={19} /><span>{photo ? photo.name : 'Atașează fotografia mesei (opțional)'}</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => attachPhoto(e.target.files?.[0])} /></label>
-      {photoPreview && <img className="meal-photo-preview" src={photoPreview} alt="Previzualizare fotografie masă" />}
+      <div className="ingredient-list">{items.map(item => <div key={item.id}><span>{item.food}</span><small>{item.grams} g · {Math.round((item.nutrition ?? foods[item.food]).kcal * item.grams / 100)} kcal</small><button aria-label="Șterge ingredientul" onClick={() => setItems(v => v.filter(x => x.id !== item.id))}><Trash2 size={15} /></button></div>)}</div>
+      <label className="photo-drop"><ImagePlus size={19} /><span>{photo ? photo.name : 'Fotografia mesei (analizată temporar, nu este salvată)'}</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => attachPhoto(e.target.files?.[0])} /></label>
+      {photoPreview && <><img className="meal-photo-preview" src={photoPreview} alt="Previzualizare locală a fotografiei mesei" /><button type="button" className="outline-button" onClick={() => void analyzePhoto()} disabled={analyzing || saving}>{analyzing ? 'Se analizează fotografia…' : 'Analizează fotografia'}</button></>}
+      {analysisNote && <p className="calorie-disclaimer">{analysisNote}</p>}
       <button className="save-meal-button" onClick={() => void saveMeal()} disabled={saving}><Save size={16} />{saving ? 'Se salvează…' : 'Salvează masa și valorile'}</button>
       {message && <p className="calorie-message" role="status">{message}</p>}
-      <p className="calorie-disclaimer">Estimare orientativă din ingredientele și gramajele introduse. Fotografia se atașează la înregistrare; analiza automată a imaginii necesită conectarea unui serviciu AI cu viziune, care nu este configurat încă.</p>
+      <p className="calorie-disclaimer">Estimările din fotografie pot fi inexacte, mai ales pentru uleiuri, sosuri și ingrediente ascunse. Fotografia este trimisă temporar serviciului AI pentru analiză, nu este încărcată în Supabase și nu este salvată în istoricul aplicației. Corectează ingredientele și gramajele înainte de salvare.</p>
     </section>
     <section className="panel calorie-result">
       <div className="panel-heading"><div><h3>Valori nutriționale estimate</h3><p>Total pentru ingredientele selectate</p></div><Flame className="calorie-flame" /></div>
