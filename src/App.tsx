@@ -5,6 +5,9 @@ import {
   Target, TrendingDown, Utensils, Weight
 } from 'lucide-react'
 import type { CSSProperties } from 'react'
+import { useAuth } from './auth/AuthProvider'
+import AuthPanel from './auth/AuthPanel'
+import MealCalorieTracker from './meals/MealCalorieTracker'
 
 type Language = 'ro' | 'en'
 type Task = { id: number; label: string; time: string; done: boolean; kind: 'medicine' | 'meal' }
@@ -43,7 +46,7 @@ const initialTasks: Task[] = [
   { id: 4, label: 'Lunch', time: '13:00', done: false, kind: 'meal' },
 ]
 
-export default function App() {
+function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
   const [lang, setLang] = useState<Language>('ro')
   const [water, setWater] = useState(1250)
   const [tasks, setTasks] = useState(initialTasks)
@@ -82,7 +85,7 @@ export default function App() {
       </a>
       <div className="profile-mini">
         <div className="avatar">A</div>
-        <div><strong>{t.greetingName}</strong><small>Demo profile</small></div>
+        <div><strong>{auth.profile?.display_name || t.greetingName}</strong><small>{auth.configured ? auth.user?.email : 'Demo profile'}</small></div>
         <button className="icon-button" aria-label={t.settings}><Settings size={17} /></button>
       </div>
       <p className="nav-label">{t.nav}</p>
@@ -105,10 +108,10 @@ export default function App() {
         <div className="mobile-brand"><Leaf size={20} /> HealthyLife AI</div>
         <div className="date-label"><CalendarDays size={16} />{date}</div>
         <div className="top-actions">
-          <span className="demo-pill"><span /> DEMO</span>
+          {!auth.configured && <span className="demo-pill"><span /> DEMO</span>}
           <button className="language-button" onClick={() => setLang(lang === 'ro' ? 'en' : 'ro')}><Languages size={17} />{lang.toUpperCase()}</button>
           <button className="icon-button notification-button" aria-label="Notifications"><Bell size={18} /></button>
-          <div className="avatar small">A</div>
+          {auth.configured && auth.user ? <button className="language-button" onClick={() => void auth.signOut()}>Ieșire</button> : <div className="avatar small">A</div>}
         </div>
       </header>
 
@@ -185,13 +188,21 @@ export default function App() {
           </article>
           <article className="inspiration-card"><div className="inspiration-icon"><Leaf size={20} /></div><p>{t.tipTitle}</p><h3>“{t.tip}”</h3><span>— HealthyLife AI</span><div className="inspiration-decoration">✳</div></article>
         </section>
-      </> : <section className="panel placeholder-panel">
+      </> : active === 'meals' ? <MealCalorieTracker userId={auth.user?.id} /> : <section className="panel placeholder-panel">
         <div className="placeholder-icon"><Sparkles size={25} /></div><h3>{selectedTitle}</h3>
         <p>{lang === 'ro' ? 'Acest modul este inclus în planul MVP și va fi dezvoltat în următoarea etapă.' : 'This module is included in the MVP plan and will be developed in the next iteration.'}</p>
         <span className="coming-soon">{lang === 'ro' ? 'În dezvoltare' : 'Coming next'}</span>
       </section>}
 
-      <footer className="footer-note"><ShieldCheck size={15} />{t.demo}<span>HealthyLife AI · v0.1.0</span></footer>
+      <footer className="footer-note"><ShieldCheck size={15} />{t.demo}<span>HealthyLife AI · v1.0.2</span></footer>
     </main>
   </div>
+}
+
+
+export default function App() {
+  const auth = useAuth()
+  if (auth.loading) return <main className="auth-screen"><div className="auth-card">Se încarcă profilul…</div></main>
+  if (auth.configured && !auth.user) return <AuthPanel />
+  return <Dashboard auth={auth} />
 }

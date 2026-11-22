@@ -1,21 +1,21 @@
 # HealthyLife AI — Architecture
 
-## Demo
-- React + TypeScript + Vite static frontend.
-- GitHub Actions runs TypeScript checks, builds the Vite app and deploys `dist/` to GitHub Pages.
-- Vite base path is `/HealthyLife/` for this repository project site.
-- Static assets belong in lowercase `public/`; Vite copies them to the root of `dist/`.
-- UI data is illustrative and held in component state only.
-- No real authentication, backend, database, push delivery or AI calls are present.
+## Version 1.0.2 — Phase 2
+- Static frontend: React + TypeScript + Vite on GitHub Pages.
+- Authentication: Supabase Auth email/password.
+- Profile store: Supabase PostgreSQL `public.profiles`.
+- Row Level Security restricts profile reads and updates to `auth.uid() = profiles.id`.
+- A database trigger creates a profile row after Auth user creation.
+- Browser uses only Supabase URL and anon/publishable key. Never ship the service-role key.
 
-## Production target
-- Authentication provider with verified email/session handling.
-- PostgreSQL with row-level security on every user-owned table.
-- Server-side API or serverless functions for privileged operations.
-- Server-side Web Push subscription storage and delivery.
-- AI provider adapter; credentials stored only as server-side secrets.
-- Audit logging that excludes sensitive health payloads.
-- Data export/deletion workflows and GDPR review.
+## Deployment boundaries
+GitHub Pages is a static host and cannot keep server secrets or run a private backend. Supabase provides managed Auth and Postgres. Privileged operations must be implemented in trusted server-side functions, not in the browser.
+
+## Phase 2 limitations
+- Requires a Supabase project, migration application, Auth URL configuration and public frontend env values.
+- Until those steps are complete, the UI remains in demo mode.
+- This release does not yet persist medication schedules, hydration logs, meal plans, weight entries or history.
+- No push notification delivery or AI provider calls are enabled.
 
 ## AI Free Forever integration gate
 Before integration, verify official API documentation, endpoint, authentication, rate limits, permitted use, retention, subprocessors and health-data handling. Do not reverse-engineer the website UI or reuse browser session tokens. If there is no documented and authorized API, leave AI disabled or use a separately approved provider.
