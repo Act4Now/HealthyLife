@@ -4,7 +4,9 @@ import { supabase } from '../lib/supabase'
 
 type Food = { name: string; kcal: number; protein: number; carbs: number; fat: number }
 type Ingredient = { id: number; food: string; grams: number; nutrition?: Food }
-type MealLog = { id: string; description: string; calories_kcal: number; protein_g: number; carbohydrates_g: number; fat_g: number; created_at: string }
+type MealLog = { id: string; description: string; calories_kcal: number; protein_g: number; carbohydrates_g: number; fat_g: number; created_at: string; ingredients?: Ingredient[] }
+type CustomFood = { id: string; name: string; serving_name: string; serving_grams: number; calories_kcal: number; protein_g: number; carbs_g: number; fat_g: number; favorite: boolean }
+type CustomRecipe = { id: string; name: string; servings: number; ingredients: Ingredient[]; calories_per_serving: number; protein_per_serving: number; carbs_per_serving: number; fat_per_serving: number }
 
 const foods: Record<string, Food> = {
   'Chicken breast': { name: 'Chicken breast', kcal: 165, protein: 31, carbs: 0, fat: 3.6 },
@@ -36,6 +38,16 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
   const [saving, setSaving] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysisNote, setAnalysisNote] = useState('')
+  const [customFoods, setCustomFoods] = useState<CustomFood[]>([])
+  const [customRecipes, setCustomRecipes] = useState<CustomRecipe[]>([])
+  const [foodName, setFoodName] = useState('')
+  const [foodServing, setFoodServing] = useState('100 g')
+  const [foodGrams, setFoodGrams] = useState(100)
+  const [foodKcal, setFoodKcal] = useState(0)
+  const [foodProtein, setFoodProtein] = useState(0)
+  const [foodCarbs, setFoodCarbs] = useState(0)
+  const [foodFat, setFoodFat] = useState(0)
+  const [recipeName, setRecipeName] = useState('')
   const [photoConsent, setPhotoConsent] = useState(false)
   const totals = useMemo(() => items.reduce((sum, item) => {
     const f = item.nutrition ?? foods[item.food]
@@ -45,9 +57,53 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
 
   useEffect(() => {
     if (!supabase || !userId) return
+    Promise.all([supabase.from('custom_foods').select('*').order('favorite', { ascending: false }).order('name'), supabase.from('custom_recipes').select('*').order('name')]).then(([foodResult, recipeResult]) => {
+      if (foodResult.error) setMessage(foodResult.error.message)
+      else setCustomFoods((foodResult.data ?? []) as CustomFood[])
+      if (recipeResult.error) setMessage(recipeResult.error.message)
+      else setCustomRecipes((recipeResult.data ?? []) as CustomRecipe[])
+    })
     supabase.from('meal_logs').select('id,description,calories_kcal,protein_g,carbohydrates_g,fat_g,ingredients,created_at').order('created_at', { ascending: false }).limit(10)
       .then(({ data, error }) => { if (error) setMessage(error.message); else setLogs((data ?? []) as MealLog[]) })
   }, [userId])
+
+  async function saveCustomFood() {
+    if (!supabase || !userId) { setMessage('Autentificarea este necesară pentru a salva alimente personale.'); return }
+    if (!foodName.trim() || foodGrams <= 0) { setMessage('Completează numele și gramajul porției.'); return }
+    const { data, error } = await supabase.from('custom_foods').insert({ user_id: userId, name: foodName.trim(), serving_name: foodServing.trim() || '100 g', serving_grams: foodGrams, calories_kcal: foodKcal, protein_g: foodProtein, carbs_g: foodCarbs, fat_g: foodFat }).select('*').single()
+    if (error) { setMessage(error.message); return }
+    setCustomFoods(current => [...current, data as CustomFood].sort((a,b) => a.name.localeCompare(b.name)))
+    setFoodName(''); setMessage('Alimentul personal a fost salvat.')
+  }
+
+  async function toggleFoodFavorite(item: CustomFood) {
+    if (!supabase) return
+    const { data, error } = await supabase.from('custom_foods').update({ favorite: !item.favorite }).eq('id', item.id).select('*').single()
+    if (error) { setMessage(error.message); return }
+    setCustomFoods(current => current.map(x => x.id === item.id ? data as CustomFood : x))
+  }
+
+  async function deleteCustomFood(id: string) {
+    if (!supabase) return
+    const { error } = await supabase.from('custom_foods').delete().eq('id', id)
+    if (error) { setMessage(error.message); return }
+    setCustomFoods(current => current.filter(x => x.id !== id))
+  }
+
+  async function saveCustomRecipe() {
+    if (!supabase || !userId) { setMessage('Autentificarea este necesară pentru a salva rețete.'); return }
+    if (!recipeName.trim() || !items.length) { setMessage('Adaugă un nume și cel puțin un ingredient.'); return }
+    const { data, error } = await supabase.from('custom_recipes').insert({ user_id: userId, name: recipeName.trim(), servings: 1, ingredients: items, calories_per_serving: totals.kcal, protein_per_serving: totals.protein, carbs_per_serving: totals.carbs, fat_per_serving: totals.fat }).select('*').single()
+    if (error) { setMessage(error.message); return }
+    setCustomRecipes(current => [...current, data as CustomRecipe].sort((a,b) => a.name.localeCompare(b.name)))
+    setRecipeName(''); setMessage('Rețeta a fost salvată pentru o porție.')
+  }
+
+  function loadCustomRecipe(recipe: CustomRecipe) {
+    setItems((recipe.ingredients ?? []).map((item, index) => ({ ...item, id: Date.now() + index })))
+    setDescription(recipe.name)
+    setMessage('Rețeta a fost încărcată în jurnal. Verifică gramajele înainte de salvare.')
+  }
 
   function attachPhoto(file?: File) {
     if (!file) return
