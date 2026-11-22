@@ -114,6 +114,29 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
     setStep(2)
   }
 
+  async function changeDayType(next: 'all' | 'weekday' | 'weekend') {
+    setDayType(next)
+    if (!supabase || !userId) return
+    const lookup = async (kind: 'all' | 'weekday' | 'weekend') => supabase!.from('daily_targets').select('*')
+      .eq('user_id', userId).eq('day_type', kind).lte('target_date', today)
+      .order('target_date', { ascending: false }).order('created_at', { ascending: false }).limit(1).maybeSingle()
+    const result = await lookup(next)
+    if (result.error) { setMessage('Nu am putut încărca țintele pentru această categorie: ' + result.error.message); return }
+    let selected = result.data
+    if (!selected && next !== 'all') {
+      const fallback = await lookup('all')
+      if (fallback.error) { setMessage('Nu am putut încărca țintele generale: ' + fallback.error.message); return }
+      selected = fallback.data
+    }
+    if (selected) {
+      setValues({ calories: selected.calories_kcal ?? 0, protein: selected.protein_g ?? 0, carbs: selected.carbs_g ?? 0, fat: selected.fat_g ?? 0, water: selected.water_ml ?? 0, steps: selected.steps ?? 0, sleep: selected.sleep_hours ?? 0 })
+      setEnabled({ ...defaultsEnabled, ...(selected.enabled ?? {}) })
+    } else {
+      setValues(emptyTargets)
+      setEnabled(defaultsEnabled)
+    }
+  }
+
   async function saveTargets() {
     if (!supabase || !userId) { setMessage('Autentificarea este necesară pentru a salva obiectivele.'); return }
     const invalid = keys.find(key => enabled[key] && (!Number.isFinite(values[key]) || values[key] <= 0))
@@ -176,7 +199,7 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
       </div>
     </> : <>
       <div className="goal-steps"><span>1 · Profil</span><span className="active">2 · Ținte zilnice</span></div>
-      <div className="target-scope"><span>Aplică pentru</span><button type="button" className={dayType === 'all' ? 'selected' : ''} onClick={() => setDayType('all')}>Toate zilele</button><button type="button" className={dayType === 'weekday' ? 'selected' : ''} onClick={() => setDayType('weekday')}>Zile lucrătoare</button><button type="button" className={dayType === 'weekend' ? 'selected' : ''} onClick={() => setDayType('weekend')}>Weekend</button></div>
+      <div className="target-scope"><span>Aplică pentru</span><button type="button" className={dayType === 'all' ? 'selected' : ''} onClick={() => void changeDayType('all')}>Toate zilele</button><button type="button" className={dayType === 'weekday' ? 'selected' : ''} onClick={() => void changeDayType('weekday')}>Zile lucrătoare</button><button type="button" className={dayType === 'weekend' ? 'selected' : ''} onClick={() => void changeDayType('weekend')}>Weekend</button></div>
       <div className="target-editor">{keys.map(key => <div className="target-row" key={key}><label><input type="checkbox" checked={enabled[key]} onChange={e => setEnabled(v => ({ ...v, [key]: e.target.checked }))} /><span>{labels[key]}</span></label><input aria-label={labels[key]} type="number" min="0" step={key === 'sleep' ? 0.5 : 1} value={values[key] || ''} placeholder="Configurează valoarea" disabled={!enabled[key]} onChange={e => setValues(v => ({ ...v, [key]: e.target.value === '' ? 0 : Number(e.target.value) }))} /></div>)}</div>
       <p className="goal-note">Alege țintele pe care dorești să le urmărești. Valorile goale nu sunt salvate; țintele se aplică pentru ziua aleasă înainte și nu rescriu istoricul.</p>
       <div className="goal-actions">{onboarding && <button type="button" className="text-button" disabled={busy} onClick={() => void skipOnboarding()}>Amână configurarea</button>}<button type="button" className="text-button" onClick={() => setStep(1)}>Înapoi la profil</button><button type="button" className="full-button" disabled={busy} onClick={() => void saveTargets()}>Salvează țintele</button></div>
