@@ -97,7 +97,7 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
     setMessage(error?.message ?? 'Medicament arhivat.'); await load(); setBusy(false)
   }
 
-  async function saveWeight(e: React.FormEvent) {
+  async function saveWeight(e: FormEvent) {
     e.preventDefault()
     const value = Number(weightValue)
     if (!supabase || !userId) return setMessage('Autentifică-te pentru a salva greutatea.')
