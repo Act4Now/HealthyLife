@@ -8,13 +8,14 @@ import HistoryTracker from './history/HistoryTracker'
 import RecipeGenerator from './recipes/RecipeGenerator'
 import PersonalGoals from './goals/PersonalGoals'
 import UserPreferences from './settings/UserPreferences'
+import PlannerAndProgress from './planner/PlannerAndProgress'
 
 type Language = 'ro' | 'en'
 
 const copy = {
   ro: {
     overview: 'Rezumatul zilei', medication: 'Medicamente', hydration: 'Hidratare',
-    meals: 'Mesele mele', weight: 'Greutate', history: 'Istoric', recipes: 'Rețete',
+    meals: 'Mesele mele', weight: 'Greutate', history: 'Istoric', recipes: 'Rețete', planner: 'Planificator',
     settings: 'Setări', help: 'Ajutor', menu: 'Meniu',
     welcome: 'Bun venit la HealthyLife', subtitle: 'Datele tale vor apărea aici după ce înregistrezi primele activități.',
     emptyTitle: 'Nu există încă înregistrări pentru astăzi',
@@ -25,7 +26,7 @@ const copy = {
   },
   en: {
     overview: "Today's overview", medication: 'Medication', hydration: 'Hydration',
-    meals: 'My meals', weight: 'Weight', history: 'History', recipes: 'Recipes',
+    meals: 'My meals', weight: 'Weight', history: 'History', recipes: 'Recipes', planner: 'Planner',
     settings: 'Settings', help: 'Help', menu: 'Menu',
     welcome: 'Welcome to HealthyLife', subtitle: 'Your data will appear here after you record your first activities.',
     emptyTitle: 'No entries recorded for today yet',
@@ -50,6 +51,7 @@ function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
     { id: 'hydration', label: t.hydration, icon: Droplets },
     { id: 'meals', label: t.meals, icon: Utensils },
     { id: 'recipes', label: t.recipes, icon: Salad },
+    { id: 'planner', label: t.planner, icon: CalendarDays },
     { id: 'weight', label: t.weight, icon: TrendingDown },
     { id: 'history', label: t.history, icon: CalendarDays },
   ]
@@ -112,7 +114,7 @@ function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
           <button onClick={() => setActive('medication')}>{t.medication}</button>
           <button onClick={() => setActive('weight')}>{t.weight}</button>
         </div>
-      </section> : active === 'meals' ? <MealCalorieTracker userId={auth.user?.id}/> : active === 'history' ? <HistoryTracker userId={auth.user?.id}/> : active === 'recipes' ? <RecipeGenerator/> : active === 'hydration' || active === 'medication' || active === 'weight' ? <WellnessTracker module={active as 'hydration'|'medication'|'weight'} userId={auth.user?.id}/> : active === 'settings' ? <><UserPreferences userId={auth.user?.id} email={auth.user?.email ?? ''} onLanguageChange={setLang} language={lang}/><PersonalGoals userId={auth.user?.id} onComplete={() => void auth.refreshProfile()}/></> : <section className="panel placeholder-panel"><div className="placeholder-icon"><CircleHelp size={25}/></div><h3>{t.help}</h3><p>{t.helpText}</p></section>}
+      </section> : active === 'meals' ? <MealCalorieTracker userId={auth.user?.id}/> : active === 'history' ? <HistoryTracker userId={auth.user?.id}/> : active === 'recipes' ? <RecipeGenerator/> : active === 'planner' ? <PlannerAndProgress userId={auth.user?.id}/> : active === 'hydration' || active === 'medication' || active === 'weight' ? <WellnessTracker module={active as 'hydration'|'medication'|'weight'} userId={auth.user?.id}/> : active === 'settings' ? <><UserPreferences userId={auth.user?.id} email={auth.user?.email ?? ''} onLanguageChange={setLang} language={lang}/><PersonalGoals userId={auth.user?.id} onComplete={() => void auth.refreshProfile()}/></> : <section className="panel placeholder-panel"><div className="placeholder-icon"><CircleHelp size={25}/></div><h3>{t.help}</h3><p>{t.helpText}</p></section>}
 
       <footer className="footer-note"><ShieldCheck size={15}/>{t.privacy}<span>{t.footer}</span></footer>
     </main>
