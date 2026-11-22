@@ -1,8 +1,6 @@
 name: Build and deploy HealthyLife to GitHub Pages
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
