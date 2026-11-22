@@ -46,7 +46,7 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
     let live = true
     Promise.all([
       supabase.from('profiles').select('height_cm,current_weight_kg,weight_goal,activity_level,goal_pace,preferred_weight_unit,preferred_height_unit,onboarding_completed_at').eq('id', userId).maybeSingle(),
-      supabase.from('daily_targets').select('*').eq('target_date', today).in('day_type', ['all', todayKind]).order('created_at', { ascending: false }),
+      supabase.from('daily_targets').select('*').lte('target_date', today).in('day_type', ['all', todayKind]).order('created_at', { ascending: false }),
     ]).then(([p, t]) => {
       if (!live) return
       if (p.error) throw p.error
@@ -127,13 +127,11 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
       ? await supabase.from('daily_targets').update(row).eq('id', existing.id)
       : await supabase.from('daily_targets').insert(row)
     if (result.error) { setMessage('Eroare la salvarea obiectivelor: ' + result.error.message); setBusy(false); return }
-    if (onboarding) {
-      const { error } = await supabase.from('profiles').update({ onboarding_completed_at: new Date().toISOString(), onboarding_skipped_at: null }).eq('id', userId)
-      if (error) { setMessage('Țintele au fost salvate, dar finalizarea onboardingului nu a putut fi înregistrată: ' + error.message); setBusy(false); return }
-    }
+    const { error: profileError } = await supabase.from('profiles').update({ onboarding_completed_at: new Date().toISOString(), onboarding_skipped_at: null }).eq('id', userId)
+    if (profileError) { setMessage('Țintele au fost salvate, dar finalizarea configurării nu a putut fi înregistrată: ' + profileError.message); setBusy(false); return }
     setBusy(false)
     setMessage('Obiectivele au fost salvate. Datele istorice nu au fost modificate.')
-    if (onboarding) onComplete?.()
+    onComplete?.()
   }
 
   async function skipOnboarding() {
