@@ -264,7 +264,10 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       else setLogDate(localDate())
       setMessage(editingMealId ? 'Masa a fost actualizată.' : 'Masa a fost salvată în istoricul profilului.')
       setEditingMealId(null); setDescription(''); setPhoto(null); setPhotoPreview(''); setAnalysisNote(''); setPhotoConsent(false); setItems([])
-    } catch (e) { setMessage(e instanceof Error ? e.message : 'Nu am putut salva masa.') }
+    } catch (e) {
+      const detail = e instanceof Error ? e.message : e && typeof e === 'object' && 'message' in e && typeof e.message === 'string' ? e.message : ''
+      setMessage(detail ? 'Nu am putut salva masa: ' + detail : 'Nu am putut salva masa. Verifică autentificarea și conexiunea la baza de date.')
+    }
     finally { setSaving(false) }
   }
 
