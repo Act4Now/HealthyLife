@@ -68,18 +68,16 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
         setValues({ calories: selected.calories_kcal ?? 0, protein: selected.protein_g ?? 0, carbs: selected.carbs_g ?? 0, fat: selected.fat_g ?? 0, water: selected.water_ml ?? 0, steps: selected.steps ?? 0, sleep: selected.sleep_hours ?? 0 })
         setEnabled({ ...defaultsEnabled, ...(selected.enabled ?? {}) })
         setDayType(selected.day_type)
-        setStep(2)
+        if (p.data?.height_cm != null && p.data?.current_weight_kg != null) setStep(2)
       } else if (p.data && p.data.height_cm != null && p.data.current_weight_kg != null) {
         setStep(2)
-        {
-          const storedKg = Number(p.data.current_weight_kg)
+        const storedKg = Number(p.data.current_weight_kg)
           const storedActivity = (p.data.activity_level ?? 'moderate') as Activity
           const storedGoal = (p.data.weight_goal ?? 'maintain') as Goal
           const storedPace = (p.data.goal_pace ?? 'steady') as Pace
           const adjustment = storedGoal === 'lose' ? (storedPace === 'gentle' ? -250 : storedPace === 'steady' ? -400 : -500) : storedGoal === 'gain' ? (storedPace === 'gentle' ? 150 : storedPace === 'steady' ? 250 : 350) : 0
           setValues({ calories: Math.max(1200, Math.round(storedKg * activityFactor[storedActivity] + adjustment)), protein: 0, carbs: 0, fat: 0, water: Math.round(Math.max(1500, Math.min(4500, storedKg * 35)) / 50) * 50, steps: 0, sleep: 0 })
-          setEnabled(defaultsEnabled)
-        }
+        setEnabled(defaultsEnabled)
       }
       setLoaded(true)
     }).catch(error => {
