@@ -27,10 +27,10 @@ const foods: Record<string, Food> = {
 
 export default function MealCalorieTracker({ userId }: { userId?: string }) {
   const [description, setDescription] = useState('')
-  const [food, setFood] = useState('Chicken breast')
-  const [grams, setGrams] = useState(120)
+  const [food, setFood] = useState('')
+  const [grams, setGrams] = useState(100)
   const [portion, setPortion] = useState(1)
-  const [items, setItems] = useState<Ingredient[]>([{ id: 1, food: 'Chicken breast', grams: 120 }, { id: 2, food: 'Rice, cooked', grams: 150 }])
+  const [items, setItems] = useState<Ingredient[]>([])
   const [photo, setPhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState('')
   const [logs, setLogs] = useState<MealLog[]>([])
@@ -161,7 +161,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
     if (!description.trim() && items.length === 0) { setMessage('Adaugă o descriere sau ingrediente.'); return }
     setSaving(true); setMessage('')
     try {
-      if (!supabase || !userId) { setMessage('Mod demo: estimarea este afișată, dar salvarea în istoric necesită autentificare Supabase și migrarea SQL.'); return }
+      if (!supabase || !userId) { setMessage('Autentifică-te pentru a salva masa în istoricul personal.'); return }
       const { data, error } = await supabase.from('meal_logs').insert({
         user_id: userId, description: description.trim() || items.map(x => x.food).join(', '),
         calories_kcal: Math.round(totals.kcal),
@@ -199,9 +199,9 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       </details>
       <div className="ingredient-title"><strong>Ingrediente și cantități</strong><span>valori estimative / 100 g</span></div>
       <div className="ingredient-add">
-        <select value={food} onChange={e => setFood(e.target.value)}>{Object.keys(foods).map(name => <option key={name}>{name}</option>)}{customFoods.length > 0 && <optgroup label="Alimentele mele">{customFoods.map(item => <option key={item.id} value={item.name}>{item.favorite ? '★ ' : ''}{item.name}</option>)}</optgroup>}</select>
+        <select value={food} onChange={e => setFood(e.target.value)}><option value="">Selectează un aliment…</option>{Object.keys(foods).map(name => <option key={name}>{name}</option>)}{customFoods.length > 0 && <optgroup label="Alimentele mele">{customFoods.map(item => <option key={item.id} value={item.name}>{item.favorite ? '★ ' : ''}{item.name}</option>)}</optgroup>}</select>
         <input type="number" min="1" max="2000" value={grams} onChange={e => setGrams(Number(e.target.value))} aria-label="Grame" />
-        <span>g</span><div className="portion-quick" aria-label="Mărimea porției">{[0.5,1,1.5,2].map(n=><button type="button" key={n} className={portion===n?'selected':''} onClick={()=>setPortion(n)}>{n===0.5?'½':n===1?'1':n===1.5?'1½':'2'}×</button>)}</div><button onClick={() => setItems(v => [...v, { id: Date.now(), food, grams: Math.max(1, Math.round(grams*portion)) }])}><Plus size={16} /> Adaugă</button>
+        <span>g</span><div className="portion-quick" aria-label="Mărimea porției">{[0.5,1,1.5,2].map(n=><button type="button" key={n} className={portion===n?'selected':''} onClick={()=>setPortion(n)}>{n===0.5?'½':n===1?'1':n===1.5?'1½':'2'}×</button>)}</div><button type="button" disabled={!food || !Number.isFinite(grams) || grams <= 0} onClick={() => setItems(v => [...v, { id: Date.now(), food, grams: Math.max(1, Math.round(grams*portion)) }])}><Plus size={16} /> Adaugă</button>
       </div>
       <div className="ingredient-list">{items.map(item => <div key={item.id}><span>{item.food}</span><small>{item.grams} g · {Math.round((item.nutrition ?? foods[item.food] ?? (() => { const x=customFoods.find(f=>f.name===item.food); return x ? {kcal:Number(x.calories_kcal)*100/Number(x.serving_grams)} : {kcal:0} })()).kcal * item.grams / 100)} kcal</small><button aria-label="Șterge ingredientul" onClick={() => setItems(v => v.filter(x => x.id !== item.id))}><Trash2 size={15} /></button></div>)}</div>
       <details className="custom-food-editor">
