@@ -7,7 +7,7 @@ Create a project in the Supabase dashboard and keep the project URL and publisha
 
 ## 2. Apply the database migration
 In Supabase, open **SQL Editor → New query**, paste the contents of:
-`migrations/202611220001_profiles.sql`, then `migrations/202611220002_meal_logs.sql`, then `migrations/202611220003_wellness_trackers.sql`
+`migrations/202611220001_profiles.sql`, then `migrations/202611220002_meal_logs.sql`, then `migrations/202611220003_wellness_trackers.sql`, then `migrations/202611220004_personalization_and_meals.sql`
 and run it.
 
 The migration creates `public.profiles`, creates a profile for each new Auth user, and enables Row Level Security. A signed-in user can select and update only the row whose ID equals `auth.uid()`.
@@ -53,3 +53,10 @@ supabase secrets set GEMINI_API_KEY=YOUR_GEMINI_API_KEY
 Keep the key only as a Supabase Edge Function secret; never add it to `.env`, GitHub Pages secrets with a `VITE_` prefix, or browser code. The app's Supabase Edge Function invocation requires a signed-in user. Both photo analysis and recipe generation use this same Edge Function secret. If the secret is absent, the function returns a configuration error and no image analysis occurs.
 
 The photo-analysis feature is not production-ready until the function is deployed, the secret is configured, and an authenticated end-to-end test succeeds.
+
+## 7. Personalized profile and meal schema
+Apply `migrations/202611220004_personalization_and_meals.sql` after the first three migrations. It adds profile measurements and preferences, dated daily targets (all days, weekdays, weekends), custom foods, custom recipes, meal plans, weight goal dates and weigh-in reminder preferences. It also grants owners update/delete access to their own weight entries under RLS.
+
+The new onboarding and target editor is available under **Settings → Profil și obiective personale**. Suggested calorie and water values are rough starting estimates, not medical recommendations. Users should review and edit them before relying on them. The new tables do not rewrite existing history.
+
+The current frontend does not yet complete every product requirement: custom-food/recipe CRUD and favorites, full meal-week planner and reminder delivery, offline synchronization, data export/account deletion, full dashboard personalization, and complete accessibility/theme controls still require implementation and end-to-end testing.
