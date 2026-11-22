@@ -7,6 +7,7 @@ import {
 import type { CSSProperties } from 'react'
 import { useAuth } from './auth/AuthProvider'
 import AuthPanel from './auth/AuthPanel'
+import MealCalorieTracker from './meals/MealCalorieTracker'
 
 type Language = 'ro' | 'en'
 type Task = { id: number; label: string; time: string; done: boolean; kind: 'medicine' | 'meal' }
@@ -187,7 +188,7 @@ function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
           </article>
           <article className="inspiration-card"><div className="inspiration-icon"><Leaf size={20} /></div><p>{t.tipTitle}</p><h3>“{t.tip}”</h3><span>— HealthyLife AI</span><div className="inspiration-decoration">✳</div></article>
         </section>
-      </> : <section className="panel placeholder-panel">
+      </> : active === 'meals' ? <MealCalorieTracker userId={auth.user?.id} /> : <section className="panel placeholder-panel">
         <div className="placeholder-icon"><Sparkles size={25} /></div><h3>{selectedTitle}</h3>
         <p>{lang === 'ro' ? 'Acest modul este inclus în planul MVP și va fi dezvoltat în următoarea etapă.' : 'This module is included in the MVP plan and will be developed in the next iteration.'}</p>
         <span className="coming-soon">{lang === 'ro' ? 'În dezvoltare' : 'Coming next'}</span>
