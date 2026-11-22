@@ -46,7 +46,7 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
     let live = true
     Promise.all([
       supabase.from('profiles').select('height_cm,current_weight_kg,weight_goal,activity_level,goal_pace,preferred_weight_unit,preferred_height_unit,onboarding_completed_at').eq('id', userId).maybeSingle(),
-      supabase.from('daily_targets').select('*').lte('target_date', today).in('day_type', ['all', todayKind]).order('created_at', { ascending: false }),
+      supabase.from('daily_targets').select('*').lte('target_date', today).in('day_type', ['all', todayKind]).order('target_date', { ascending: false }).order('created_at', { ascending: false }),
     ]).then(([p, t]) => {
       if (!live) return
       if (p.error) throw p.error
@@ -154,8 +154,8 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
         <label>Obiectiv<select value={goal} onChange={e => setGoal(e.target.value as Goal)}><option value="lose">Slăbire</option><option value="maintain">Menținere</option><option value="gain">Creștere în greutate</option></select></label>
         <label>Înălțime ({heightUnit})<input type="number" min={heightUnit === 'cm' ? 100 : 3.28} max={heightUnit === 'cm' ? 250 : 8.2} step="0.01" value={height} placeholder={heightUnit === 'cm' ? 'ex. 170' : 'ex. 5.58'} onChange={e => setHeight(e.target.value)} /></label>
         <label>Greutate ({weightUnit})<input type="number" min={weightUnit === 'kg' ? 25 : 55.12} max={weightUnit === 'kg' ? 350 : 771.62} step="0.1" value={weight} placeholder={weightUnit === 'kg' ? 'ex. 70' : 'ex. 154.3'} onChange={e => setWeight(e.target.value)} /></label>
-        <label>Unitatea greutății<select value={weightUnit} onChange={e => setWeightUnit(e.target.value as 'kg' | 'lb')}><option value="kg">kg</option><option value="lb">lb</option></select></label>
-        <label>Unitatea înălțimii<select value={heightUnit} onChange={e => setHeightUnit(e.target.value as 'cm' | 'ft')}><option value="cm">cm</option><option value="ft">ft (zecimal)</option></select></label>
+        <label>Unitatea greutății<select value={weightUnit} onChange={e => { const next = e.target.value as 'kg' | 'lb'; const kg = weightUnit === 'lb' ? Number(weight) / 2.2046226218 : Number(weight); setWeight(Number.isFinite(kg) && kg > 0 ? String(Number((next === 'lb' ? kg * 2.2046226218 : kg).toFixed(2))) : ''); setWeightUnit(next) }}><option value="kg">kg</option><option value="lb">lb</option></select></label>
+        <label>Unitatea înălțimii<select value={heightUnit} onChange={e => { const next = e.target.value as 'cm' | 'ft'; const cm = heightUnit === 'ft' ? Number(height) * 30.48 : Number(height); setHeight(Number.isFinite(cm) && cm > 0 ? String(Number((next === 'ft' ? cm / 30.48 : cm).toFixed(2))) : ''); setHeightUnit(next) }}><option value="cm">cm</option><option value="ft">ft (zecimal)</option></select></label>
         <label>Nivel de activitate<select value={activity} onChange={e => setActivity(e.target.value as Activity)}><option value="sedentary">Sedentar</option><option value="light">Ușor activ</option><option value="moderate">Moderat</option><option value="high">Activ</option><option value="very_high">Foarte activ</option></select></label>
         <label>Ritmul preferat<select value={pace} onChange={e => setPace(e.target.value as Pace)}><option value="gentle">Blând</option><option value="steady">Moderat</option><option value="ambitious">Susținut</option></select></label>
       </div>
