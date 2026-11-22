@@ -22,4 +22,8 @@ jobs:
           node-version: 20
       - run: npm install
       - run: npm run typecheck
-      - run: npm run build
+      - name: Build with Supabase configuration
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
