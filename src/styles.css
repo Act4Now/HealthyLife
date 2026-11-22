@@ -150,3 +150,16 @@
 .portion-quick button.selected{background:#e4f2e6;border-color:#9dc5a5;color:#28633c;font-weight:700}
 .meal-repeat{border:1px solid #dce6df;background:#fff;border-radius:7px;padding:6px 8px;color:#4f805a;font-size:.75rem;cursor:pointer}
 @media(max-width:560px){.portion-quick{order:4;width:100%;justify-content:flex-start}.ingredient-add button{min-height:38px}}
+
+
+/* Personal food and recipe editor */
+.custom-food-editor{margin:14px 0;padding:12px;border:1px solid #e4ece4;border-radius:11px;background:#fbfdfb}
+.custom-food-editor summary{cursor:pointer;color:#54845e;font-size:11px;font-weight:700}
+.custom-food-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:12px}
+.custom-food-fields>input,.custom-food-fields label input{width:100%;min-width:0;border:1px solid #dfe9df;border-radius:8px;padding:9px;background:#fff;color:#294235;font:11px 'DM Sans',sans-serif}
+.custom-food-fields label{display:grid;gap:5px;color:#78887d;font-size:9px}
+.custom-food-fields button,.custom-food-row button{border:0;border-radius:8px;padding:8px 10px;background:#edf5eb;color:#54845e;font-size:10px;font-weight:700}
+.custom-food-row{display:flex;align-items:center;gap:7px;padding:9px 0;border-top:1px solid #edf2ed;font-size:10px}
+.custom-food-row span{flex:1;color:#52685a}
+.custom-food-row button:last-child{background:#f8eeee;color:#a56868}
+@media(max-width:420px){.custom-food-fields{grid-template-columns:1fr}.custom-food-row{flex-wrap:wrap}}
