@@ -14,14 +14,14 @@ const today = () => localDateKey(new Date())
 
 export default function WellnessTracker({ module, userId }: { module: Module; userId?: string }) {
   const [waterLogs, setWaterLogs] = useState<WaterLog[]>([])
-  const [waterGoal, setWaterGoal] = useState(2000)
+  const [waterGoal, setWaterGoal] = useState('')
   const [medications, setMedications] = useState<Medication[]>([])
   const [medLogs, setMedLogs] = useState<MedicationLog[]>([])
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
-  const [newWater, setNewWater] = useState(250)
+  const [newWater, setNewWater] = useState('')
   const [medName, setMedName] = useState('')
   const [medDose, setMedDose] = useState('')
-  const [medSchedule, setMedSchedule] = useState('08:00')
+  const [medSchedule, setMedSchedule] = useState('')
   const [weightValue, setWeightValue] = useState('')
   const [weightDate, setWeightDate] = useState(today())
   const [weightNotes, setWeightNotes] = useState('')
@@ -46,7 +46,7 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
     const errors = [w.error, g.error, m.error, ml.error, wt.error].filter(Boolean)
     if (errors.length) setMessage(errors[0]?.message ?? 'Nu s-au putut încărca datele.')
     setWaterLogs((w.data ?? []) as WaterLog[])
-    setWaterGoal(g.data?.hydration_goal_ml ?? 2000)
+    setWaterGoal(g.data?.hydration_goal_ml == null ? '' : String(g.data.hydration_goal_ml))
     setMedications((m.data ?? []) as Medication[])
     setMedLogs((ml.data ?? []) as MedicationLog[])
     setWeightLogs([...((wt.data ?? []) as WeightLog[])].reverse())
@@ -59,6 +59,7 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
   useEffect(() => { void load() }, [load])
 
   const waterToday = waterLogs.filter(x => localDateKey(new Date(x.logged_at)) === today()).reduce((s, x) => s + x.amount_ml, 0)
+  const numericWaterGoal = Number(waterGoal) || 0
   const latestWeight = weightLogs.at(-1)
   const title = module === 'hydration' ? 'Hidratare' : module === 'medication' ? 'Medicamente' : 'Greutate'
 
@@ -67,24 +68,26 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
     if (!Number.isFinite(amount) || amount < 1 || amount > 5000) return setMessage('Introdu o cantitate între 1 și 5.000 ml.')
     setBusy(true); setMessage('')
     const { error } = await supabase.from('hydration_logs').insert({ user_id: userId, amount_ml: Math.round(amount) })
-    if (error) setMessage(error.message); else { setNewWater(250); await load(); setMessage('Cantitatea de apă a fost salvată.') }
+    if (error) setMessage(error.message); else { setNewWater(''); await load(); setMessage('Cantitatea de apă a fost salvată.') }
     setBusy(false)
   }
 
   async function saveWaterGoal() {
     if (!supabase || !userId) return
+    const goal = Number(waterGoal)
+    if (!Number.isFinite(goal) || goal < 250 || goal > 10000) { setMessage('Introdu un obiectiv între 250 și 10.000 ml.'); return }
     setBusy(true)
-    const { error } = await supabase.from('wellness_goals').upsert({ user_id: userId, hydration_goal_ml: waterGoal }, { onConflict: 'user_id' })
+    const { error } = await supabase.from('wellness_goals').upsert({ user_id: userId, hydration_goal_ml: goal }, { onConflict: 'user_id' })
     setMessage(error?.message ?? 'Obiectivul de hidratare a fost actualizat.'); setBusy(false)
   }
 
   async function addMedication(e: FormEvent) {
     e.preventDefault()
     if (!supabase || !userId) return setMessage('Autentifică-te pentru a salva medicamentele.')
-    if (!medName.trim() || !medDose.trim()) return setMessage('Completează numele și doza.')
+    if (!medName.trim() || !medDose.trim() || !medSchedule) return setMessage('Completează numele, doza și ora programată.')
     setBusy(true)
     const { error } = await supabase.from('medications').insert({ user_id: userId, name: medName.trim(), dose: medDose.trim(), schedule: medSchedule })
-    if (error) setMessage(error.message); else { setMedName(''); setMedDose(''); await load(); setMessage('Medicament adăugat.') }
+    if (error) setMessage(error.message); else { setMedName(''); setMedDose(''); setMedSchedule(''); await load(); setMessage('Medicament adăugat.') }
     setBusy(false)
   }
 
@@ -150,12 +153,12 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
   return <div className="wellness-layout">
     {module === 'hydration' && <section className="panel wellness-panel">
       <div className="panel-heading"><div><h3><Droplets size={19} /> Hidratare zilnică</h3><p>Înregistrează apa consumată și urmărește obiectivul zilnic</p></div></div>
-      <div className="wellness-total"><strong>{waterToday.toLocaleString('ro-RO')}</strong><span> / {waterGoal.toLocaleString('ro-RO')} ml</span></div>
-      <div className="wellness-progress"><span style={{ width: Math.min(100, waterToday / Math.max(1, waterGoal) * 100) + '%' }} /></div>
-      <p>{Math.max(0, waterGoal - waterToday).toLocaleString('ro-RO')} ml până la obiectiv · {Math.round(waterToday / Math.max(1, waterGoal) * 100)}%</p>
+      <div className="wellness-total"><strong>{waterToday.toLocaleString('ro-RO')}</strong><span>{numericWaterGoal > 0 ? ' / ' + numericWaterGoal.toLocaleString('ro-RO') + ' ml' : ' ml · obiectiv neconfigurat'}</span></div>
+      <div className="wellness-progress"><span style={{ width: numericWaterGoal > 0 ? Math.min(100, waterToday / numericWaterGoal * 100) : 0 + '%' }} /></div>
+      <p>{numericWaterGoal > 0 ? Math.max(0, numericWaterGoal - waterToday).toLocaleString('ro-RO') + ' ml până la obiectiv · ' + Math.round(waterToday / numericWaterGoal * 100) + '%' : 'Configurează un obiectiv pentru a urmări progresul.'}</p>
       <div className="wellness-actions">{[150, 250, 500].map(n => <button key={n} disabled={busy} onClick={() => void saveWater(n)}>+{n} ml</button>)}</div>
-      <div className="wellness-inline"><label>Cantitate personalizată (ml)<input type="number" min="1" max="5000" value={newWater} onChange={e => setNewWater(Number(e.target.value))} /></label><button disabled={busy} onClick={() => void saveWater()}><Plus size={16}/> Adaugă apă</button></div>
-      <div className="wellness-inline"><label>Obiectiv zilnic (ml)<input type="number" min="250" max="10000" value={waterGoal} onChange={e => setWaterGoal(Number(e.target.value))}/></label><button disabled={busy} onClick={() => void saveWaterGoal()}><Save size={16}/> Salvează obiectivul</button></div>
+      <div className="wellness-inline"><label>Cantitate personalizată (ml)<input type="number" min="1" max="5000" value={newWater} placeholder="ex. 250" onChange={e => setNewWater(e.target.value)} /></label><button disabled={busy} onClick={() => void saveWater()}><Plus size={16}/> Adaugă apă</button></div>
+      <div className="wellness-inline"><label>Obiectiv zilnic (ml)<input type="number" min="250" max="10000" value={waterGoal} placeholder="ex. 2000" onChange={e => setWaterGoal(e.target.value)}/></label><button disabled={busy} onClick={() => void saveWaterGoal()}><Save size={16}/> Salvează obiectivul</button></div>
       <h4>Înregistrări recente</h4>
       {waterLogs.slice(0, 15).map(x => <div className="wellness-row" key={x.id}><span>{new Date(x.logged_at).toLocaleString('ro-RO')}</span><strong>{x.amount_ml} ml</strong></div>)}
       {!waterLogs.length && <p>Nu există încă înregistrări.</p>}
@@ -163,7 +166,7 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
 
     {module === 'medication' && <><section className="panel wellness-panel">
       <div className="panel-heading"><div><h3><Pill size={19}/> Medicamentele mele</h3><p>Gestionează lista și programul introdus de tine</p></div></div>
-      <form className="wellness-form" onSubmit={addMedication}><label>Denumire<input value={medName} onChange={e => setMedName(e.target.value)} placeholder="Numele medicamentului" required/></label><label>Doză<input value={medDose} onChange={e => setMedDose(e.target.value)} placeholder="Ex.: 1 comprimat" required/></label><label>Ora programată<input type="time" value={medSchedule} onChange={e => setMedSchedule(e.target.value)}/></label><button disabled={busy}><Plus size={16}/> Adaugă medicament</button></form>
+      <form className="wellness-form" onSubmit={addMedication}><label>Denumire<input value={medName} onChange={e => setMedName(e.target.value)} placeholder="Numele medicamentului" required/></label><label>Doză<input value={medDose} onChange={e => setMedDose(e.target.value)} placeholder="Ex.: 1 comprimat" required/></label><label>Ora programată<input type="time" value={medSchedule} onChange={e => setMedSchedule(e.target.value)} required/></label><button disabled={busy}><Plus size={16}/> Adaugă medicament</button></form>
       <p className="calorie-disclaimer">Introdu doar schema indicată de medic sau farmacist. Aplicația nu recomandă doze și nu înlocuiește sfatul medical.</p>
       <h4>Program activ</h4>
       {medications.map(m => { const last = medLogs.find(x => x.medication_id === m.id && localDateKey(new Date(x.taken_at)) === today()); return <div className="wellness-med" key={m.id}><div><strong>{m.name}</strong><span>{m.dose} · {m.schedule}</span>{last && <small>Astăzi: {last.status === 'taken' ? 'administrat' : 'omis'}</small>}</div><div className="wellness-actions"><button disabled={busy || !!last} onClick={() => void recordMedication(m.id, 'taken')}>Administrat</button><button disabled={busy || !!last} onClick={() => void recordMedication(m.id, 'skipped')}>Omis</button><button className="danger-button" disabled={busy} onClick={() => void deleteMedication(m.id)} aria-label="Arhivează"><Trash2 size={15}/></button></div></div>})}
