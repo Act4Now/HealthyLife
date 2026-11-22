@@ -13,6 +13,7 @@ const emptyTargets: TargetValues = { calories: 0, protein: 0, carbs: 0, fat: 0, 
 const defaultsEnabled: Enabled = { calories: true, protein: false, carbs: false, fat: false, water: true, steps: false, sleep: false }
 const labels: Record<TargetKey, string> = { calories: 'Calorii (kcal)', protein: 'Proteine (g)', carbs: 'Carbohidrați (g)', fat: 'Grăsimi (g)', water: 'Apă (ml)', steps: 'Pași', sleep: 'Somn (ore)' }
 const keys: TargetKey[] = ['calories', 'protein', 'carbs', 'fat', 'water', 'steps', 'sleep']
+const activityFactor: Record<Activity, number> = { sedentary: 26, light: 28, moderate: 30, high: 33, very_high: 36 }
 
 function localDate() {
   const now = new Date()
@@ -89,7 +90,6 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
 
   const heightCm = heightUnit === 'ft' ? Number(height) * 30.48 : Number(height)
   const weightKg = weightUnit === 'lb' ? Number(weight) / 2.2046226218 : Number(weight)
-  const activityFactor: Record<Activity, number> = { sedentary: 26, light: 28, moderate: 30, high: 33, very_high: 36 }
   const goalFactor = goal === 'lose' ? (pace === 'gentle' ? -250 : pace === 'steady' ? -400 : -500) : goal === 'gain' ? (pace === 'gentle' ? 150 : pace === 'steady' ? 250 : 350) : 0
   const profileValid = Number.isFinite(heightCm) && heightCm >= 100 && heightCm <= 250 && Number.isFinite(weightKg) && weightKg >= 25 && weightKg <= 350
   const suggestedCalories = profileValid ? Math.max(1200, Math.round(weightKg * activityFactor[activity] + goalFactor)) : null
