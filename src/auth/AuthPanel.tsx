@@ -31,7 +31,7 @@ export default function AuthPanel() {
 
   return <main className="auth-screen">
     <section className="auth-card">
-      <div className="auth-brand"><span><Leaf size={24} /></span><div><strong>HealthyLife AI</strong><small>WELLNESS COMPANION</small></div></div>
+      <div className="auth-brand"><span><Leaf size={24} /></span><div><strong>HealthyLife</strong><small>WELLNESS COMPANION</small></div></div>
       <h1>{mode === 'signin' ? 'Bine ai revenit!' : 'Creează-ți profilul'}</h1>
       <p className="auth-subtitle">{mode === 'signin' ? 'Autentifică-te pentru a accesa datele profilului tău.' : 'Un cont separat pentru progresul și istoricul tău.'}</p>
       <form onSubmit={submit} className="auth-form">
