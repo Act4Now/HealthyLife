@@ -10,6 +10,7 @@ type Profile = {
   timezone: string
   onboarding_completed_at: string | null
   onboarding_skipped_at: string | null
+  has_daily_targets: boolean
 }
 
 type AuthContextValue = {
@@ -44,7 +45,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .eq('id', user.id)
       .maybeSingle()
     if (error) throw error
-    setProfile(data as Profile | null)
+    if (!data) { setProfile(null); return }
+    const { data: targetRows, error: targetsError } = await supabase
+      .from('daily_targets')
+      .select('id')
+      .eq('user_id', user.id)
+      .limit(1)
+    setProfile({ ...(data as Omit<Profile, 'has_daily_targets'>), has_daily_targets: !targetsError && (targetRows?.length ?? 0) > 0 })
   }
 
   useEffect(() => {
