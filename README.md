@@ -1,6 +1,6 @@
-# HealthyLife AI
+# HealthyLife
 
-HealthyLife AI is a bilingual (Romanian / English) wellness companion. Version **1.0.2** includes authentication, profiles, meal logging, hydration tracking, medication schedules and weight tracking.
+HealthyLife is a bilingual (Romanian / English) wellness companion. Version **1.0.2** includes authentication, profiles, meal logging, hydration tracking, medication schedules and weight tracking.
 
 ## Version control
 - Current development version: `1.0.2`
