@@ -48,6 +48,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
   const [foodCarbs, setFoodCarbs] = useState(0)
   const [foodFat, setFoodFat] = useState(0)
   const [recipeName, setRecipeName] = useState('')
+  const [recipeServings, setRecipeServings] = useState(1)
   const [photoConsent, setPhotoConsent] = useState(false)
   const totals = useMemo(() => items.reduce((sum, item) => {
     const custom = customFoods.find(x => x.name === item.food); const f = item.nutrition ?? foods[item.food] ?? (custom ? { name: custom.name, kcal: Number(custom.calories_kcal) * 100 / Number(custom.serving_grams), protein: Number(custom.protein_g) * 100 / Number(custom.serving_grams), carbs: Number(custom.carbs_g) * 100 / Number(custom.serving_grams), fat: Number(custom.fat_g) * 100 / Number(custom.serving_grams) } : { name: item.food, kcal: 0, protein: 0, carbs: 0, fat: 0 })
@@ -92,11 +93,11 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
 
   async function saveCustomRecipe() {
     if (!supabase || !userId) { setMessage('Autentificarea este necesară pentru a salva rețete.'); return }
-    if (!recipeName.trim() || !items.length) { setMessage('Adaugă un nume și cel puțin un ingredient.'); return }
-    const { data, error } = await supabase.from('custom_recipes').insert({ user_id: userId, name: recipeName.trim(), servings: 1, ingredients: items, calories_per_serving: totals.kcal, protein_per_serving: totals.protein, carbs_per_serving: totals.carbs, fat_per_serving: totals.fat }).select('*').single()
+    if (!recipeName.trim() || !items.length || recipeServings <= 0) { setMessage('Adaugă un nume, cel puțin un ingredient și numărul de porții.'); return }
+    const { data, error } = await supabase.from('custom_recipes').insert({ user_id: userId, name: recipeName.trim(), servings: recipeServings, ingredients: items, calories_per_serving: totals.kcal / recipeServings, protein_per_serving: totals.protein / recipeServings, carbs_per_serving: totals.carbs / recipeServings, fat_per_serving: totals.fat / recipeServings }).select('*').single()
     if (error) { setMessage(error.message); return }
     setCustomRecipes(current => [...current, data as CustomRecipe].sort((a,b) => a.name.localeCompare(b.name)))
-    setRecipeName(''); setMessage('Rețeta a fost salvată pentru o porție.')
+    setRecipeName(''); setRecipeServings(1); setMessage('Rețeta a fost salvată; valorile sunt calculate per porție.')
   }
 
   function loadCustomRecipe(recipe: CustomRecipe) {
@@ -206,7 +207,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       <details className="custom-food-editor">
         <summary>＋ Salvează rețeta ingredientelor curente</summary>
         <div className="custom-food-fields">
-          <input value={recipeName} onChange={e=>setRecipeName(e.target.value)} placeholder="Numele rețetei" maxLength={160}/>
+          <input value={recipeName} onChange={e=>setRecipeName(e.target.value)} placeholder="Numele rețetei" maxLength={160}/><label>Număr de porții<input type="number" min="1" max="100" step="1" value={recipeServings} onChange={e=>setRecipeServings(Math.max(1,Number(e.target.value)))}/></label>
           <button type="button" onClick={()=>void saveCustomRecipe()}>Salvează rețeta</button>
         </div>
         {customRecipes.map(recipe=><div className="custom-food-row" key={recipe.id}><span>{recipe.name} · {Math.round(recipe.calories_per_serving)} kcal / porție</span><button type="button" onClick={()=>loadCustomRecipe(recipe)}>Încarcă</button></div>)}
