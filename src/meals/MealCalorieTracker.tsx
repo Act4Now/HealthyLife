@@ -114,7 +114,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
 
   async function saveCustomRecipe() {
     if (!supabase || !userId) { setMessage('Autentificarea este necesară pentru a salva rețete.'); return }
-    if (!recipeName.trim() || !items.length || !Number.isFinite(recipeServings) || recipeServings <= 0 || !Number.isFinite(totals.kcal)) { setMessage('Adaugă un nume, ingrediente valide și numărul de porții.'); return }
+    if (!recipeName.trim() || !items.length || items.some(item => !Number.isFinite(item.grams) || item.grams <= 0) || !Number.isFinite(recipeServings) || recipeServings <= 0 || !Number.isFinite(totals.kcal) || totals.kcal <= 0) { setMessage('Adaugă un nume, ingrediente valide și numărul de porții.'); return }
     const payload = { name: recipeName.trim(), servings: recipeServings, ingredients: items, calories_per_serving: totals.kcal / recipeServings, protein_per_serving: totals.protein / recipeServings, carbs_per_serving: totals.carbs / recipeServings, fat_per_serving: totals.fat / recipeServings }
     const result = editingRecipeId
       ? await supabase.from('custom_recipes').update(payload).eq('id', editingRecipeId).eq('user_id', userId).select('*').single()
@@ -245,6 +245,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
 
   async function saveMeal() {
     if (items.length === 0) { setMessage('Adaugă cel puțin un ingredient și gramajul acestuia înainte de salvare.'); return }
+    if (![totals.kcal, totals.protein, totals.carbs, totals.fat].every(value => Number.isFinite(value) && value >= 0) || totals.kcal <= 0) { setMessage('Verifică valorile nutriționale ale ingredientelor înainte de salvare.'); return }
     setSaving(true); setMessage('')
     try {
       if (!supabase || !userId) { setMessage('Autentifică-te pentru a salva masa în istoricul personal.'); return }
@@ -318,7 +319,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       <div className="macro-row"><span>Carbohidrați</span><strong>{totals.carbs.toFixed(1)} g</strong><i><b style={{width: totals.kcal ? (totals.carbs*4/totals.kcal*100)+'%' : '0%'}} /></i></div>
       <div className="macro-row"><span>Grăsimi</span><strong>{totals.fat.toFixed(1)} g</strong><i><b style={{width: totals.kcal ? (totals.fat*9/totals.kcal*100)+'%' : '0%'}} /></i></div>
       <div className="meal-history-heading"><h4>Mesele zilei selectate</h4><label>Ziua <input type="date" value={logDate} onChange={e=>setLogDate(e.target.value)} /></label>{logDate !== localDate() && logs.length > 0 && <button type="button" className="outline-button" onClick={()=>void copySelectedDay()}>Copiază toată ziua în astăzi</button>}</div>
-      {logs.length ? logs.map(log => <div className="meal-log-row" key={log.id}><button type="button" className="meal-repeat" onClick={()=>loadMealForEdit(log)}>Editează</button><button type="button" className="meal-repeat" onClick={()=>{const saved=Array.isArray(log.ingredients)?log.ingredients:[];setEditingMealId(null);setItems(saved.map((item,index)=>({...item,id:Date.now()+index})));setDescription(log.description);setMessage('Masa a fost copiată în formular. Verifică data, ingredientele și gramajele înainte de a salva o înregistrare nouă.')}}>Copiază</button><span>{log.description}</span><strong>{log.calories_kcal} kcal</strong><button type="button" onClick={()=>void deleteMeal(log.id)} aria-label="Șterge masa">Șterge</button></div>) : <p className="empty-logs">Nu există mese salvate pentru această zi. Selectează o zi anterioară pentru a copia o masă.</p>}
+      {logs.length ? logs.map(log => <div className="meal-log-row" key={log.id}><button type="button" className="meal-repeat" onClick={()=>loadMealForEdit(log)}>Editează</button><button type="button" className="meal-repeat" onClick={()=>{const saved=Array.isArray(log.ingredients)?log.ingredients:[];setEditingMealId(null);setEditingRecipeId(null);setItems(saved.map((item,index)=>({...item,id:Date.now()+index})));setDescription(log.description);setMessage('Masa a fost copiată în formular. Verifică data, ingredientele și gramajele înainte de a salva o înregistrare nouă.')}}>Copiază</button><span>{log.description}</span><strong>{log.calories_kcal} kcal</strong><button type="button" onClick={()=>void deleteMeal(log.id)} aria-label="Șterge masa">Șterge</button></div>) : <p className="empty-logs">Nu există mese salvate pentru această zi. Selectează o zi anterioară pentru a copia o masă.</p>}
     </section>
   </div>
 }
