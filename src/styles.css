@@ -59,3 +59,35 @@
 .meal-log-row strong{font-size:10px;color:#4d8059}
 @media(max-width:900px){.calorie-layout{grid-template-columns:1fr}}
 @media(max-width:420px){.calorie-form,.calorie-result{padding:14px}.ingredient-add{flex-wrap:wrap}.ingredient-add select{flex-basis:100%}.photo-drop{flex-wrap:wrap}}
+
+
+/* Wellness trackers */
+.wellness-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start}
+.wellness-panel{padding:24px;min-width:0}
+.wellness-panel .panel-heading h3,.wellness-panel h3{display:flex;align-items:center;gap:9px}
+.wellness-total{display:flex;align-items:baseline;gap:7px;margin:22px 0 10px;color:var(--text,#26352e)}
+.wellness-total strong{font-size:clamp(2rem,5vw,3rem);font-weight:750;letter-spacing:-.04em}
+.wellness-total span,.wellness-panel>p{color:var(--muted,#718078)}
+.wellness-progress{height:13px;background:#e9f0eb;border-radius:99px;overflow:hidden;margin:14px 0}
+.wellness-progress span{display:block;height:100%;background:linear-gradient(90deg,#54a77c,#8bc9a1);border-radius:99px;transition:width .2s}
+.wellness-actions{display:flex;gap:8px;flex-wrap:wrap}
+.wellness-actions button,.wellness-inline button,.wellness-form button{border:0;border-radius:10px;padding:10px 13px;background:#eaf4ed;color:#276544;font-weight:650;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.wellness-actions button:disabled,.wellness-inline button:disabled,.wellness-form button:disabled{opacity:.5;cursor:not-allowed}
+.wellness-inline{display:flex;gap:12px;align-items:end;margin-top:16px;flex-wrap:wrap}
+.wellness-inline label,.wellness-form label{display:grid;gap:6px;flex:1;min-width:140px;color:var(--muted,#718078);font-size:.88rem}
+.wellness-inline input,.wellness-form input{width:100%;min-width:0;border:1px solid #dce6df;border-radius:9px;padding:11px;background:#fff;color:#26352e;font:inherit}
+.wellness-inline button{min-height:42px}
+.wellness-panel h4{margin:24px 0 10px}
+.wellness-row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid #edf1ee;font-size:.9rem}
+.wellness-row span{color:var(--muted,#718078)}
+.wellness-row strong{text-align:right}
+.wellness-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}
+.wellness-form button{align-self:end;min-height:42px}
+.wellness-med{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #edf1ee}
+.wellness-med>div:first-child{display:grid;gap:4px}
+.wellness-med span,.wellness-med small{color:var(--muted,#718078);font-size:.86rem}
+.wellness-med .wellness-actions{justify-content:flex-end}
+.wellness-med .wellness-actions button{font-size:.8rem;padding:8px 10px}
+.wellness-med .danger-button{background:#fff0ed;color:#a94332}
+.weight-chart{width:100%;height:220px;color:#45966a;background:#f7faf8;border-radius:12px;margin:12px 0}
+@media(max-width:760px){.wellness-layout{grid-template-columns:1fr}.wellness-panel{padding:18px}.wellness-med{align-items:flex-start;flex-direction:column}.wellness-med .wellness-actions{justify-content:flex-start}.wellness-form{grid-template-columns:1fr}}
