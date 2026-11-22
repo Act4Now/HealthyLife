@@ -105,3 +105,13 @@
 .history-entry>div{display:grid;gap:4px}
 .history-entry>div strong{font-size:.92rem}
 .history-panel .panel-heading button{border:1px solid #e2eae2;background:#fff;color:#63866b;border-radius:9px;padding:8px;cursor:pointer}
+
+
+.recipe-card{border-top:1px solid #e6ece7;padding:18px 0}
+.recipe-card:first-of-type{border-top:0}
+.recipe-card h4{margin:0 0 8px;color:#315b40}
+.recipe-card h5{margin:14px 0 6px}
+.recipe-card p{line-height:1.55}
+.recipe-card ul,.recipe-card ol{padding-left:22px;line-height:1.65}
+.recipe-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;color:#58745f;font-size:.9rem}
+.recipe-meta span{display:inline-flex;align-items:center;gap:5px}
