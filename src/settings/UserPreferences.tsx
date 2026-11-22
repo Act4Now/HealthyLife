@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Download, Moon, Sun, Monitor, Trash2, Languages, Type, ShieldCheck } from 'lucide-react'
+import { Download, Trash2, ShieldCheck } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 type Props = { userId?: string; email: string; language: 'ro'|'en'; onLanguageChange: (value:'ro'|'en')=>void }
