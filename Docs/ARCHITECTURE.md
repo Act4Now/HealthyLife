@@ -2,7 +2,9 @@
 
 ## Demo
 - React + TypeScript + Vite static frontend.
-- GitHub Actions builds the site and deploys `dist/` to GitHub Pages.
+- GitHub Actions runs TypeScript checks, builds the Vite app and deploys `dist/` to GitHub Pages.
+- Vite base path is `/HealthyLife/` for this repository project site.
+- Static assets belong in lowercase `public/`; Vite copies them to the root of `dist/`.
 - UI data is illustrative and held in component state only.
 - No real authentication, backend, database, push delivery or AI calls are present.
 
