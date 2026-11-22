@@ -9,7 +9,8 @@ type Medication = { id: string; name: string; dose: string; schedule: string; no
 type MedicationLog = { id: string; medication_id: string; taken_at: string; status: string }
 type WeightLog = { id: string; weight_kg: number; measured_at: string; notes: string }
 
-const today = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+const localDateKey = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`
+const today = () => localDateKey(new Date())
 
 export default function WellnessTracker({ module, userId }: { module: Module; userId?: string }) {
   const [waterLogs, setWaterLogs] = useState<WaterLog[]>([])
@@ -52,7 +53,7 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
 
   useEffect(() => { void load() }, [load])
 
-  const waterToday = waterLogs.filter(x => x.logged_at.slice(0, 10) === today()).reduce((s, x) => s + x.amount_ml, 0)
+  const waterToday = waterLogs.filter(x => localDateKey(new Date(x.logged_at)) === today()).reduce((s, x) => s + x.amount_ml, 0)
   const latestWeight = weightLogs.at(-1)
   const title = module === 'hydration' ? 'Hidratare' : module === 'medication' ? 'Medicamente' : 'Greutate'
 
@@ -148,7 +149,7 @@ export default function WellnessTracker({ module, userId }: { module: Module; us
       <form className="wellness-form" onSubmit={addMedication}><label>Denumire<input value={medName} onChange={e => setMedName(e.target.value)} placeholder="Numele medicamentului" required/></label><label>Doză<input value={medDose} onChange={e => setMedDose(e.target.value)} placeholder="Ex.: 1 comprimat" required/></label><label>Ora programată<input type="time" value={medSchedule} onChange={e => setMedSchedule(e.target.value)}/></label><button disabled={busy}><Plus size={16}/> Adaugă medicament</button></form>
       <p className="calorie-disclaimer">Introdu doar schema indicată de medic sau farmacist. Aplicația nu recomandă doze și nu înlocuiește sfatul medical.</p>
       <h4>Program activ</h4>
-      {medications.map(m => { const last = medLogs.find(x => x.medication_id === m.id && x.taken_at.slice(0,10) === today()); return <div className="wellness-med" key={m.id}><div><strong>{m.name}</strong><span>{m.dose} · {m.schedule}</span>{last && <small>Astăzi: {last.status === 'taken' ? 'administrat' : 'omis'}</small>}</div><div className="wellness-actions"><button disabled={busy || !!last} onClick={() => void recordMedication(m.id, 'taken')}>Administrat</button><button disabled={busy || !!last} onClick={() => void recordMedication(m.id, 'skipped')}>Omis</button><button className="danger-button" disabled={busy} onClick={() => void deleteMedication(m.id)} aria-label="Arhivează"><Trash2 size={15}/></button></div></div>})}
+      {medications.map(m => { const last = medLogs.find(x => x.medication_id === m.id && localDateKey(new Date(x.taken_at)) === today()); return <div className="wellness-med" key={m.id}><div><strong>{m.name}</strong><span>{m.dose} · {m.schedule}</span>{last && <small>Astăzi: {last.status === 'taken' ? 'administrat' : 'omis'}</small>}</div><div className="wellness-actions"><button disabled={busy || !!last} onClick={() => void recordMedication(m.id, 'taken')}>Administrat</button><button disabled={busy || !!last} onClick={() => void recordMedication(m.id, 'skipped')}>Omis</button><button className="danger-button" disabled={busy} onClick={() => void deleteMedication(m.id)} aria-label="Arhivează"><Trash2 size={15}/></button></div></div>})}
       {!medications.length && <p>Nu ai adăugat medicamente.</p>}
     </section><section className="panel wellness-panel"><h3>Istoric administrări</h3>{medLogs.slice(0,20).map(x => <div className="wellness-row" key={x.id}><span>{new Date(x.taken_at).toLocaleString('ro-RO')}</span><strong>{medications.find(m => m.id === x.medication_id)?.name ?? 'Medicament'} · {x.status === 'taken' ? 'Administrat' : 'Omis'}</strong></div>)}{!medLogs.length && <p>Nu există administrări înregistrate.</p>}</section></>}
 
