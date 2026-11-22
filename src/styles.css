@@ -143,3 +143,10 @@
 .weight-row-actions{display:inline-flex;gap:6px;flex-wrap:wrap}
 .weight-row-actions button{border:1px solid #dce6df;background:#fff;border-radius:7px;padding:6px 8px;color:#54715b;font-size:.78rem;cursor:pointer}
 .weight-chart-legend{font-size:.78rem;line-height:1.5;color:var(--muted,#718078)}
+
+
+.portion-quick{display:inline-flex;gap:4px;align-items:center}
+.portion-quick button{border:1px solid #dce6df;border-radius:7px;background:#fff;color:#54715b;padding:7px 8px;font-size:.75rem;cursor:pointer}
+.portion-quick button.selected{background:#e4f2e6;border-color:#9dc5a5;color:#28633c;font-weight:700}
+.meal-repeat{border:1px solid #dce6df;background:#fff;border-radius:7px;padding:6px 8px;color:#4f805a;font-size:.75rem;cursor:pointer}
+@media(max-width:560px){.portion-quick{order:4;width:100%;justify-content:flex-start}.ingredient-add button{min-height:38px}}
