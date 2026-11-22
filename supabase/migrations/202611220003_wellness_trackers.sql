@@ -1,4 +1,4 @@
--- HealthyLife AI: hydration, medication and weight tracking
+-- HealthyLife: hydration, medication and weight tracking
 create table if not exists public.wellness_goals (
   user_id uuid primary key references auth.users(id) on delete cascade,
   hydration_goal_ml integer not null default 2000 check (hydration_goal_ml between 250 and 10000),
