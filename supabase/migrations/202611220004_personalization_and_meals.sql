@@ -101,3 +101,9 @@ using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id)
 drop policy if exists "weight owner delete" on public.weight_logs;
 create policy "weight owner delete" on public.weight_logs for delete to authenticated
 using ((select auth.uid()) = user_id);
+
+
+alter table public.wellness_goals
+  add column if not exists weight_goal_date date,
+  add column if not exists weigh_in_reminder text not null default 'weekly'
+    check (weigh_in_reminder in ('daily','weekly','biweekly','monthly','off'));
