@@ -8,6 +8,8 @@ type Profile = {
   display_name: string | null
   locale: string
   timezone: string
+  onboarding_completed_at: string | null
+  onboarding_skipped_at: string | null
 }
 
 type AuthContextValue = {
@@ -38,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name, locale, timezone')
+      .select('id, display_name, locale, timezone, onboarding_completed_at, onboarding_skipped_at')
       .eq('id', user.id)
       .maybeSingle()
     if (error) throw error
