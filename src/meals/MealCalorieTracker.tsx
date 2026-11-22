@@ -35,6 +35,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
   const [saving, setSaving] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysisNote, setAnalysisNote] = useState('')
+  const [photoConsent, setPhotoConsent] = useState(false)
   const totals = useMemo(() => items.reduce((sum, item) => {
     const f = item.nutrition ?? foods[item.food]
     const factor = item.grams / 100
@@ -61,6 +62,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
 
   async function analyzePhoto() {
     if (!photo || !supabase) { setMessage('Autentifică-te și selectează o fotografie pentru analiză.'); return }
+    if (!photoConsent) { setMessage('Confirmă mai întâi transmiterea temporară a fotografiei către Google Gemini.'); return }
     setAnalyzing(true); setMessage(''); setAnalysisNote('')
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
@@ -111,7 +113,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       if (error) throw error
       setLogs(current => [data as MealLog, ...current])
       setMessage('Masa a fost salvată în istoricul profilului.')
-      setDescription(''); setPhoto(null); setPhotoPreview(''); setAnalysisNote(''); setItems([])
+      setDescription(''); setPhoto(null); setPhotoPreview(''); setAnalysisNote(''); setPhotoConsent(false); setItems([])
     } catch (e) { setMessage(e instanceof Error ? e.message : 'Nu am putut salva masa.') }
     finally { setSaving(false) }
   }
@@ -130,11 +132,11 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       </div>
       <div className="ingredient-list">{items.map(item => <div key={item.id}><span>{item.food}</span><small>{item.grams} g · {Math.round((item.nutrition ?? foods[item.food]).kcal * item.grams / 100)} kcal</small><button aria-label="Șterge ingredientul" onClick={() => setItems(v => v.filter(x => x.id !== item.id))}><Trash2 size={15} /></button></div>)}</div>
       <label className="photo-drop"><ImagePlus size={19} /><span>{photo ? photo.name : 'Fotografia mesei (analizată temporar, nu este salvată)'}</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => attachPhoto(e.target.files?.[0])} /></label>
-      {photoPreview && <><img className="meal-photo-preview" src={photoPreview} alt="Previzualizare locală a fotografiei mesei" /><button type="button" className="outline-button" onClick={() => void analyzePhoto()} disabled={analyzing || saving}>{analyzing ? 'Se analizează fotografia…' : 'Analizează fotografia'}</button></>}
+      {photoPreview && <><img className="meal-photo-preview" src={photoPreview} alt="Previzualizare locală a fotografiei mesei" /><label className="calorie-disclaimer"><input type="checkbox" checked={photoConsent} onChange={e => setPhotoConsent(e.target.checked)} /> Sunt de acord ca fotografia să fie transmisă către Google Gemini pentru analiză. HealthyLife nu o salvează. Pentru conturile Google AI gratuite, Google poate folosi conținutul transmis pentru îmbunătățirea produselor; consultă politica Google înainte de a continua.</label><button type="button" className="outline-button" onClick={() => void analyzePhoto()} disabled={analyzing || saving || !photoConsent}>{analyzing ? 'Se analizează fotografia…' : 'Analizează fotografia'}</button></>}
       {analysisNote && <p className="calorie-disclaimer">{analysisNote}</p>}
       <button className="save-meal-button" onClick={() => void saveMeal()} disabled={saving}><Save size={16} />{saving ? 'Se salvează…' : 'Salvează masa și valorile'}</button>
       {message && <p className="calorie-message" role="status">{message}</p>}
-      <p className="calorie-disclaimer">Estimările din fotografie pot fi inexacte, mai ales pentru uleiuri, sosuri și ingrediente ascunse. Fotografia este trimisă temporar serviciului AI pentru analiză, nu este încărcată în Supabase și nu este salvată în istoricul aplicației. Corectează ingredientele și gramajele înainte de salvare.</p>
+      <p className="calorie-disclaimer">Estimările din fotografie pot fi inexacte, mai ales pentru uleiuri, sosuri și ingrediente ascunse. Fotografia este transmisă temporar către Google Gemini numai după acordul tău. HealthyLife nu o încarcă în Supabase și nu o salvează în istoricul aplicației. Politica Google și condițiile planului API se aplică procesării externe. Corectează ingredientele și gramajele înainte de salvare.</p>
     </section>
     <section className="panel calorie-result">
       <div className="panel-heading"><div><h3>Valori nutriționale estimate</h3><p>Total pentru ingredientele selectate</p></div><Flame className="calorie-flame" /></div>
