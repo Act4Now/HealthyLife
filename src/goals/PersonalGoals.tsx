@@ -70,15 +70,15 @@ export default function PersonalGoals({ userId }: { userId?: string }) {
     const profile={id:userId,height_cm:heightCm,current_weight_kg:weightKg,weight_goal:goal,activity_level:activity,goal_pace:pace,preferred_weight_unit:weightUnit,preferred_height_unit:heightUnit,onboarding_completed_at:new Date().toISOString()}
     const {error:profileError}=await supabase.from('profiles').upsert(profile,{onConflict:'id'})
     if(profileError){setMessage(profileError.message);setBusy(false);return}
-    await saveTargets()
+    await saveTargets({...values,calories:suggestedCalories,water:suggestedWater})
     setBusy(false);setStep(2)
   }
 
-  async function saveTargets() {
+  async function saveTargets(targetValues: TargetValues = values) {
     if(!supabase||!userId){setMessage('Autentifică-te pentru a salva obiectivele.');return}
     setBusy(true)
     const enabledKeys=Object.fromEntries(keys.map(k=>[k,enabled[k]]))
-    const row={user_id:userId,target_date:new Date().toISOString().slice(0,10),day_type:weekend?'weekend':'all',calories_kcal:values.calories,protein_g:values.protein,carbs_g:values.carbs,fat_g:values.fat,water_ml:values.water,steps:values.steps,sleep_hours:values.sleep,enabled:enabledKeys}
+    const row={user_id:userId,target_date:new Date().toISOString().slice(0,10),day_type:weekend?'weekend':'all',calories_kcal:targetValues.calories,protein_g:targetValues.protein,carbs_g:targetValues.carbs,fat_g:targetValues.fat,water_ml:targetValues.water,steps:targetValues.steps,sleep_hours:targetValues.sleep,enabled:enabledKeys}
     const {error}=await supabase.from('daily_targets').insert(row)
     setMessage(error?'Eroare la salvarea obiectivelor: '+error.message:'Obiectivele au fost salvate începând de astăzi. Înregistrările istorice au rămas neschimbate.')
     setBusy(false)
