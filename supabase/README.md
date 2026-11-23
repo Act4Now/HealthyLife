@@ -88,3 +88,11 @@ The planner can register a browser push subscription. The public VAPID key is em
 5. Rebuild and deploy the Pages frontend. Sign in, open **Planificator**, then select **Activează push în fundal** and allow browser notifications.
 
 The `send-push` function currently sends a push message to the signed-in user's registered browser subscriptions when invoked with an authenticated Supabase session. It removes expired subscriptions (HTTP 404/410). This is the server-side delivery primitive, not yet an automatic meal-reminder scheduler: scheduled dispatch, retry/backoff, unsubscribe UI, and delivery monitoring remain follow-up work. Push delivery also depends on browser support, notification permission, VAPID configuration, and the user's device/network settings.
+
+
+The scheduled meal dispatcher is `supabase/functions/dispatch-meal-reminders`. Deploy it and add the additional server-only secret:
+```sh
+supabase functions deploy dispatch-meal-reminders
+supabase secrets set PUSH_CRON_SECRET=YOUR_LONG_RANDOM_SECRET
+```
+Configure a trusted scheduler (for example Supabase Cron) to send an HTTP POST every minute to `https://YOUR_PROJECT_REF.supabase.co/functions/v1/dispatch-meal-reminders` with header `Authorization: Bearer YOUR_PUSH_CRON_SECRET` and JSON body `{}`. Store the cron secret in the scheduler's secret store, never in the frontend or repository. The dispatcher checks due, uneaten meal plans with enabled reminders, sends to the owner's subscriptions, and marks the plan as sent only after at least one delivery succeeds. Expired browser subscriptions are removed. Review logs and test with a non-sensitive reminder before relying on it.
