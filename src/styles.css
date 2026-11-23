@@ -269,3 +269,11 @@
 .slot-form input{padding:8px;border:1px solid #dce7dc;border-radius:9px;background:#fff;color:#20352c}
 .weight-track{font-size:12px;color:#456b50;background:#eff7ed;border-radius:9px;padding:9px 11px;margin:8px 0}
 .offline-banner{margin:10px 0 0;padding:9px 12px;border-radius:10px;background:#fbf3e3;color:#7a5a1a;font-size:12px;line-height:1.5}
+
+
+/* Main-menu shortcuts and consistent return navigation */
+.home-shortcuts{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:9px;margin:0 0 20px}
+.home-shortcut{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:10px 12px;border:1px solid #e2ebe2;border-radius:11px;background:#fff;color:#52745b;font-size:12px;font-weight:700;text-align:center;transition:background .15s,border-color .15s}
+.home-shortcut:hover{background:#edf6ed;border-color:#cfe1d0}
+.back-home-button{white-space:normal}
+@media(max-width:560px){.home-shortcuts{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.home-shortcut{justify-content:flex-start;padding:10px;font-size:11px}.back-home-button{max-width:190px}}
