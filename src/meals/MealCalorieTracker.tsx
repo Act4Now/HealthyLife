@@ -56,6 +56,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
   const [recipeName, setRecipeName] = useState('')
   const [recipeServings, setRecipeServings] = useState(1)
   const [photoConsent, setPhotoConsent] = useState(false)
+  const [recentMeals, setRecentMeals] = useState<{ description: string; count: number; ingredients: Ingredient[] }[]>([])
   const totals = useMemo(() => items.reduce((sum, item) => {
     const custom = customFoods.find(x => x.name === item.food); const f = item.nutrition ?? foods[item.food] ?? (custom ? { name: custom.name, kcal: Number(custom.calories_kcal) * 100 / Number(custom.serving_grams), protein: Number(custom.protein_g) * 100 / Number(custom.serving_grams), carbs: Number(custom.carbs_g) * 100 / Number(custom.serving_grams), fat: Number(custom.fat_g) * 100 / Number(custom.serving_grams) } : { name: item.food, kcal: 0, protein: 0, carbs: 0, fat: 0 })
     const factor = item.grams / 100
@@ -84,6 +85,32 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
       .order('created_at', { ascending: false })
       .then(({ data, error }) => { if (error) setMessage(error.message); else setLogs((data ?? []) as MealLog[]) })
   }, [userId, logDate])
+
+  // Recent and frequent meals from the last 30 days, shown as one-tap shortcuts.
+  useEffect(() => {
+    if (!supabase || !userId) return
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+    supabase.from('meal_logs').select('description,ingredients,created_at')
+      .eq('user_id', userId).gte('created_at', since).order('created_at', { ascending: false }).limit(200)
+      .then(({ data }) => {
+        const grouped = new Map<string, { description: string; count: number; ingredients: Ingredient[] }>()
+        for (const row of (data ?? []) as { description: string; ingredients: Ingredient[] | null }[]) {
+          const key = row.description.trim().toLowerCase()
+          if (!key) continue
+          const existing = grouped.get(key)
+          if (existing) existing.count += 1
+          else grouped.set(key, { description: row.description, count: 1, ingredients: Array.isArray(row.ingredients) ? row.ingredients : [] })
+        }
+        setRecentMeals([...grouped.values()].sort((a, b) => b.count - a.count).slice(0, 8))
+      })
+  }, [userId, logs])
+
+  function loadRecentMeal(meal: { description: string; ingredients: Ingredient[] }) {
+    setEditingMealId(null); setEditingRecipeId(null)
+    setItems(meal.ingredients.map((item, index) => ({ ...item, id: Date.now() + index })))
+    setDescription(meal.description)
+    setMessage('Masa a fost încărcată în formular. Verifică ingredientele și gramajele, apoi salvează o înregistrare nouă.')
+  }
 
   async function saveCustomFood() {
     if (!supabase || !userId) { setMessage('Autentificarea este necesară pentru a salva alimente personale.'); return }
@@ -292,6 +319,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
         {customFoods.map(item=><div className="custom-food-row" key={item.id}><span>{item.name} · {item.serving_grams} g</span><button type="button" onClick={()=>void toggleFoodFavorite(item)}>{item.favorite?'★ Favorit':'☆ Favorit'}</button><button type="button" onClick={()=>editCustomFood(item)}>Editează</button><button type="button" onClick={()=>void deleteCustomFood(item.id)}>Șterge</button></div>)}
         {!customFoods.length && <p className="empty-logs">Alimentele create de tine vor apărea aici.</p>}
       </details>
+      {recentMeals.length > 0 && <div className="recent-meals"><strong>Recente și frecvente</strong><div>{recentMeals.map(meal => <button type="button" key={meal.description} onClick={() => loadRecentMeal(meal)}>{meal.description}{meal.count > 1 ? ` ×${meal.count}` : ''}</button>)}</div></div>}
       <div className="ingredient-title"><strong>Ingrediente și cantități</strong><span>valori estimative / 100 g</span></div>
       <div className="ingredient-add">
         <select value={food} onChange={e => setFood(e.target.value)}><option value="">Selectează un aliment…</option>{Object.keys(foods).map(name => <option key={name}>{name}</option>)}{customFoods.length > 0 && <optgroup label="Alimentele mele">{customFoods.map(item => <option key={item.id} value={item.name}>{item.favorite ? '★ ' : ''}{item.name}</option>)}</optgroup>}</select>
