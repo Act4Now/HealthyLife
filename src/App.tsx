@@ -9,6 +9,7 @@ import RecipeGenerator from './recipes/RecipeGenerator'
 import PersonalGoals from './goals/PersonalGoals'
 import UserPreferences from './settings/UserPreferences'
 import PlannerAndProgress from './planner/PlannerAndProgress'
+import VoiceAssistant from './VoiceAssistant'
 
 type Language = 'ro' | 'en'
 
@@ -104,7 +105,7 @@ function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
         <button className="outline-button" onClick={() => setActive('history')}><CalendarDays size={16}/>{t.history}</button>
       </div>
 
-      {active === 'dashboard' ? <section className="panel placeholder-panel">
+      {active === 'dashboard' ? <><VoiceAssistant userId={auth.user?.id} language={lang}/><section className="panel placeholder-panel">
         <div className="placeholder-icon"><Activity size={25}/></div>
         <h3>{t.emptyTitle}</h3>
         <p>{t.emptyText}</p>
@@ -114,7 +115,7 @@ function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
           <button onClick={() => setActive('medication')}>{t.medication}</button>
           <button onClick={() => setActive('weight')}>{t.weight}</button>
         </div>
-      </section> : active === 'meals' ? <MealCalorieTracker userId={auth.user?.id}/> : active === 'history' ? <HistoryTracker userId={auth.user?.id}/> : active === 'recipes' ? <RecipeGenerator/> : active === 'planner' ? <PlannerAndProgress userId={auth.user?.id}/> : active === 'hydration' || active === 'medication' || active === 'weight' ? <WellnessTracker module={active as 'hydration'|'medication'|'weight'} userId={auth.user?.id}/> : active === 'settings' ? <><UserPreferences userId={auth.user?.id} email={auth.user?.email ?? ''} onLanguageChange={setLang} language={lang}/><PersonalGoals userId={auth.user?.id} onComplete={() => void auth.refreshProfile()}/></> : <section className="panel placeholder-panel"><div className="placeholder-icon"><CircleHelp size={25}/></div><h3>{t.help}</h3><p>{t.helpText}</p></section>}
+      </section></> : active === 'meals' ? <MealCalorieTracker userId={auth.user?.id}/> : active === 'history' ? <HistoryTracker userId={auth.user?.id}/> : active === 'recipes' ? <RecipeGenerator/> : active === 'planner' ? <PlannerAndProgress userId={auth.user?.id}/> : active === 'hydration' || active === 'medication' || active === 'weight' ? <WellnessTracker module={active as 'hydration'|'medication'|'weight'} userId={auth.user?.id}/> : active === 'settings' ? <><UserPreferences userId={auth.user?.id} email={auth.user?.email ?? ''} onLanguageChange={setLang} language={lang}/><PersonalGoals userId={auth.user?.id} onComplete={() => void auth.refreshProfile()}/></> : <section className="panel placeholder-panel"><div className="placeholder-icon"><CircleHelp size={25}/></div><h3>{t.help}</h3><p>{t.helpText}</p></section>}
 
       <footer className="footer-note"><ShieldCheck size={15}/>{t.privacy}<span>{t.footer}</span></footer>
     </main>
