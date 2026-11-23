@@ -55,7 +55,7 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
   const [foodFat, setFoodFat] = useState(0)
   const [recipeName, setRecipeName] = useState('')
   const [recipeServings, setRecipeServings] = useState(1)
-  const [photoConsent, setPhotoConsent] = useState(false)
+  const [aiResponse, setAiResponse] = useState('')
   const [recentMeals, setRecentMeals] = useState<{ description: string; count: number; ingredients: Ingredient[] }[]>([])
   const totals = useMemo(() => items.reduce((sum, item) => {
     const custom = customFoods.find(x => x.name === item.food); const f = item.nutrition ?? foods[item.food] ?? (custom ? { name: custom.name, kcal: Number(custom.calories_kcal) * 100 / Number(custom.serving_grams), protein: Number(custom.protein_g) * 100 / Number(custom.serving_grams), carbs: Number(custom.carbs_g) * 100 / Number(custom.serving_grams), fat: Number(custom.fat_g) * 100 / Number(custom.serving_grams) } : { name: item.food, kcal: 0, protein: 0, carbs: 0, fat: 0 })
@@ -230,44 +230,69 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
     setMessage('')
   }
 
+  function buildMealAnalysisPrompt() {
+    return `Analyze the attached meal photo for a food diary. Identify visible foods and estimate edible portion weights in grams. For each ingredient return nutrition per 100 g: calories (kcal), protein_g, carbs_g, fat_g. Do not invent hidden ingredients; state uncertainty clearly. Reply ONLY with valid JSON in this exact shape:
+{
+  "description": "short meal description",
+  "uncertainty": "what is uncertain",
+  "ingredients": [
+    { "name": "food name", "grams": 120, "kcal_per_100g": 150, "protein_g_per_100g": 20, "carbs_g_per_100g": 5, "fat_g_per_100g": 4 }
+  ]
+}
+Use numeric values. If portion size cannot be determined, give a cautious estimate and explain uncertainty.`
+  }
+
   async function analyzePhoto() {
-    if (!photo || !supabase) { setMessage('Autentifică-te și selectează o fotografie pentru analiză.'); return }
-    if (!photoConsent) { setMessage('Confirmă mai întâi transmiterea temporară a fotografiei către Google Gemini.'); return }
-    setAnalyzing(true); setMessage(''); setAnalysisNote('')
+    if (!photo) { setMessage('Selectează mai întâi o fotografie.'); return }
+    const prompt = buildMealAnalysisPrompt()
     try {
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onerror = () => reject(new Error('Nu am putut citi fotografia.'))
-        reader.onload = () => resolve(String(reader.result ?? ''))
-        reader.readAsDataURL(photo)
-      })
-      const [header, base64] = dataUrl.split(',')
-      const mime = header.match(/^data:(image\/(?:jpeg|png|webp));base64$/)?.[1]
-      if (!mime || !base64) throw new Error('Formatul fotografiei nu este acceptat.')
-      const { data, error } = await supabase.functions.invoke('analyze-food-photo', { body: { image_base64: base64, mime_type: mime } })
-      if (error) throw error
-      if (data?.error) throw new Error(data.error)
-      const analyzed: Ingredient[] = (data?.ingredients ?? []).map((item: Record<string, unknown>, index: number) => ({
-        id: Date.now() + index,
-        food: String(item.name),
-        grams: Math.max(1, Math.round(Number(item.grams))),
-        nutrition: {
-          name: String(item.name),
+      if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [photo] })) {
+        await navigator.share({ title: 'HealthyLife – analiză masă', text: prompt, files: [photo] })
+        setMessage('Fotografia și instrucțiunile au fost partajate. După analiza în aplicația AI aleasă, copiază răspunsul JSON aici.')
+      } else {
+        await navigator.clipboard.writeText(prompt)
+        setMessage('Instrucțiunile au fost copiate. Deschide aplicația AI preferată, atașează fotografia și lipește instrucțiunile.')
+      }
+    } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') return
+      try {
+        await navigator.clipboard.writeText(prompt)
+        setMessage('Partajarea fotografiei nu este disponibilă în acest browser. Instrucțiunile au fost copiate; atașează fotografia manual în aplicația AI.')
+      } catch {
+        setMessage('Partajarea nu este disponibilă. Copiază instrucțiunile afișate mai jos și atașează fotografia în aplicația AI.')
+      }
+    }
+  }
+
+  function importAiAnalysis() {
+    try {
+      const raw = aiResponse.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
+      const parsed = JSON.parse(raw) as { description?: unknown; uncertainty?: unknown; ingredients?: unknown[] }
+      if (!Array.isArray(parsed.ingredients) || parsed.ingredients.length === 0) throw new Error('Răspunsul nu conține ingrediente.')
+      const analyzed: Ingredient[] = parsed.ingredients.map((entry, index) => {
+        const item = entry as Record<string, unknown>
+        const name = String(item.name ?? '').trim()
+        const grams = Number(item.grams)
+        const nutrition = {
+          name,
           kcal: Number(item.kcal_per_100g),
           protein: Number(item.protein_g_per_100g),
           carbs: Number(item.carbs_g_per_100g),
           fat: Number(item.fat_g_per_100g),
-        },
-      }))
-      if (!analyzed.length) throw new Error(data?.uncertainty || 'Nu am identificat alimente în fotografie. Încearcă o imagine mai clară.')
-      if (analyzed.some(item => !item.nutrition || !Number.isFinite(item.grams) || item.grams <= 0 || ![item.nutrition.kcal, item.nutrition.protein, item.nutrition.carbs, item.nutrition.fat].every(value => Number.isFinite(value) && value >= 0))) throw new Error('Analiza a returnat valori nutriționale invalide. Reîncearcă sau introdu manual ingredientele.')
+        }
+        if (!name || !Number.isFinite(grams) || grams <= 0 || ![nutrition.kcal, nutrition.protein, nutrition.carbs, nutrition.fat].every(value => Number.isFinite(value) && value >= 0)) {
+          throw new Error('Unul dintre ingrediente are valori lipsă sau invalide. Cere aplicației AI JSON-ul în formatul indicat.')
+        }
+        return { id: Date.now() + index, food: name, grams: Math.round(grams), nutrition }
+      })
       setItems(analyzed)
-      if (data.description) setDescription(String(data.description))
-      setAnalysisNote(String(data.uncertainty ?? 'Valorile sunt estimative. Verifică ingredientele și gramajele înainte de salvare.'))
-      setMessage('Analiza fotografiei s-a terminat. Verifică și corectează rezultatele.')
+      if (typeof parsed.description === 'string') setDescription(parsed.description)
+      setAnalysisNote(typeof parsed.uncertainty === 'string' ? parsed.uncertainty : 'Valorile sunt estimări generate de AI. Verifică ingredientele și gramajele.')
+      setMessage('Analiza AI a fost importată. Verifică rezultatele înainte de salvare.')
+      setAiResponse('')
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Analiza fotografiei a eșuat.')
-    } finally { setAnalyzing(false) }
+      setMessage(e instanceof Error ? e.message : 'Nu am putut interpreta răspunsul AI. Lipește JSON-ul complet.')
+    }
   }
 
   async function saveMeal() {
@@ -337,11 +362,11 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
         {!customRecipes.length && <p className="empty-logs">Rețetele salvate vor apărea aici.</p>}
       </details>
       <label className="photo-drop"><ImagePlus size={19} /><span>{photo ? photo.name : 'Fotografia mesei (analizată temporar, nu este salvată)'}</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={e => attachPhoto(e.target.files?.[0])} /></label>
-      {photoPreview && <><img className="meal-photo-preview" src={photoPreview} alt="Previzualizare locală a fotografiei mesei" /><label className="calorie-disclaimer"><input type="checkbox" checked={photoConsent} onChange={e => setPhotoConsent(e.target.checked)} /> Sunt de acord ca fotografia să fie transmisă către Google Gemini pentru analiză. HealthyLife nu o salvează. Pentru conturile Google AI gratuite, Google poate folosi conținutul transmis pentru îmbunătățirea produselor; consultă politica Google înainte de a continua.</label><button type="button" className="outline-button" onClick={() => void analyzePhoto()} disabled={analyzing || saving || !photoConsent}>{analyzing ? 'Se analizează fotografia…' : 'Analizează fotografia'}</button></>}
+      {photoPreview && <><img className="meal-photo-preview" src={photoPreview} alt="Previzualizare locală a fotografiei mesei" /><p className="calorie-disclaimer">Alege aplicația AI din meniul de partajare al telefonului (de exemplu ChatGPT sau Gemini). HealthyLife nu trimite fotografia către un serviciu AI și nu are nevoie de o cheie API. Fotografia este transmisă numai aplicației pe care o selectezi.</p><button type="button" className="outline-button" onClick={() => void analyzePhoto()} disabled={saving}>Partajează cu aplicația AI</button><details className="custom-food-editor"><summary>Instrucțiuni pentru copiere manuală</summary><textarea readOnly rows={8} value={buildMealAnalysisPrompt()} /><button type="button" className="outline-button" onClick={() => void navigator.clipboard.writeText(buildMealAnalysisPrompt())}>Copiază instrucțiunile</button></details><label className="calorie-label">Lipește răspunsul JSON primit de la aplicația AI<textarea rows={8} value={aiResponse} onChange={e=>setAiResponse(e.target.value)} placeholder='{"description":"...","ingredients":[...]}' /></label><button type="button" className="outline-button" onClick={importAiAnalysis} disabled={!aiResponse.trim()}>Importă analiza în jurnal</button></>}
       {analysisNote && <p className="calorie-disclaimer">{analysisNote}</p>}
       <button className="save-meal-button" onClick={() => void saveMeal()} disabled={saving}><Save size={16} />{saving ? 'Se salvează…' : editingMealId ? 'Actualizează masa' : 'Salvează masa și valorile'}</button>{editingMealId && <button type="button" className="outline-button" onClick={()=>{setEditingMealId(null);setDescription('');setItems([]);setMessage('Editarea a fost anulată.')}}>Anulează editarea</button>}
       {message && <p className="calorie-message" role="status">{message}</p>}
-      <p className="calorie-disclaimer">Estimările din fotografie pot fi inexacte, mai ales pentru uleiuri, sosuri și ingrediente ascunse. Fotografia este transmisă temporar către Google Gemini numai după acordul tău. HealthyLife nu o încarcă în Supabase și nu o salvează în istoricul aplicației. Politica Google și condițiile planului API se aplică procesării externe. Corectează ingredientele și gramajele înainte de salvare.</p>
+      <p className="calorie-disclaimer">Estimările din fotografie pot fi inexacte, mai ales pentru uleiuri, sosuri și ingrediente ascunse. Fotografia nu este transmisă de HealthyLife către niciun server AI. Dacă alegi partajarea, aceasta este trimisă direct aplicației selectate de tine, conform politicii și condițiilor acelui furnizor. Corectează ingredientele și gramajele înainte de salvare.</p>
     </section>
     <section className="panel calorie-result">
       <div className="panel-heading"><div><h3>Valori nutriționale estimate</h3><p>Total pentru ingredientele selectate</p></div><Flame className="calorie-flame" /></div>
