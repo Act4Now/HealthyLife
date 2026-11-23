@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Mic, MicOff, Check, Pencil, X, Undo2, Type } from 'lucide-react'
+import { Mic, Check, Pencil, X, Undo2, Type } from 'lucide-react'
 import { supabase } from './lib/supabase'
 
 type Intent = 'meal' | 'water' | 'medication'
@@ -34,6 +34,10 @@ const makeId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`
 const normalize = (s:string) => s.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[’']/g,' ').replace(/[^a-z0-9: ]/g,' ').replace(/\s+/g,' ').trim()
 const parseTime = (s:string) => {
   const t=normalize(s)
+  const words:Record<string,number>={unu:1,una:1,doi:2,doua:2,trei:3,patru:4,cinci:5,sase:6,sapte:7,opt:8,noua:9,zece:10,unsprezece:11,douasprezece:12}
+  const word=Object.keys(words).find(k=>t.includes(k))
+  if(word&&/(seara|dupa amiaza|pm)/.test(t))return String((words[word]%12)+12).padStart(2,'0')+':00'
+  if(word&&/(dimineata|am)/.test(t))return String(words[word]%12).padStart(2,'0')+':00'
   const m=t.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/) || t.match(/\b(?:ora\s*)?(\d{1,2})(?::(\d{2}))?\s*(?:si)?\s*(dimineata|dupa amiaza|seara|noaptea)\b/) || t.match(/\b(\d{1,2})(?::(\d{2}))?\b/)
   if(!m)return ''
   let h=Number(m[1]), min=Number(m[2]??0)
@@ -64,7 +68,8 @@ function parseTranscript(raw:string, language:'ro'|'en'):Draft[]{
       const item=matched??''
       const ambiguous=['pie','plăcintă','placinta','cake','prăjitură','prajitura'].includes(item)
       const opts=ambiguous?(language==='ro'?['Plăcintă cu mere','Plăcintă cu brânză','Plăcintă cu dovleac']:['Apple pie','Cheese pie','Pumpkin pie']):undefined
-      drafts.push({id:makeId(),intent:'meal',item:item?item:'',amount:'1 porție',time:new Date().toTimeString().slice(0,5),date:today(),options:opts,uncertain:!item?'Nu am identificat alimentul. Alege o variantă sau editează numele.':undefined})
+      const amount=/(piece|felie|bucata)/.test(part)?(language==='ro'?'1 bucată':'1 piece'):'1 porție'
+      drafts.push({id:makeId(),intent:'meal',item:item?item:'',amount,time:new Date().toTimeString().slice(0,5),date:today(),options:opts,uncertain:!item?'Nu am identificat alimentul. Alege o variantă sau editează numele.':undefined})
     }
   }
   return drafts
@@ -81,7 +86,6 @@ export default function VoiceAssistant({userId,language}:{userId?:string;languag
  const [typed,setTyped]=useState(false)
  const [saved,setSaved]=useState<Saved[]>([])
  const recognizer=useRef<Recognition|null>(null)
- const [support,setSupport]=useState<'unknown'|'supported'|'unsupported'>('unknown')
  useEffect(()=>{
   if(!supabase||!userId)return
   void supabase.from('wellness_goals').select('glass_size_ml').eq('user_id',userId).maybeSingle().then(({data})=>{if(data?.glass_size_ml)setGlassMl(Number(data.glass_size_ml))})
@@ -90,15 +94,16 @@ export default function VoiceAssistant({userId,language}:{userId?:string;languag
  function start(){
   const w=window as RecognitionWindow
   const API=w.SpeechRecognition??w.webkitSpeechRecognition
-  if(!API){setSupport('unsupported');setMessage(language==='ro'?'Recunoașterea vocală nu este disponibilă în acest browser. Poți introduce textul manual.':'Speech recognition is not supported in this browser. You can type instead.');return}
+  if(!API){setMessage(language==='ro'?'Recunoașterea vocală nu este disponibilă în acest browser. Poți introduce textul manual.':'Speech recognition is not supported in this browser. You can type instead.');return}
   if(!userId){setMessage(language==='ro'?'Autentifică-te pentru a folosi jurnalul vocal.':'Sign in to use voice logging.');return}
   try{
    const rec=new API();recognizer.current=rec;rec.lang=language==='ro'?'ro-RO':'en-US';rec.interimResults=true;rec.continuous=false
    rec.onresult=(event)=>{
-    let finalText='',live=''
-    for(let i=event.resultIndex;i<event.results.length;i++){const item=event.results[i];if(item.isFinal)finalText+=item[0].transcript+' ';else live+=item[0].transcript}
+    let finalText='',live='',lowConfidence=false
+    for(let i=event.resultIndex;i<event.results.length;i++){const item=event.results[i];if(item.isFinal){finalText+=item[0].transcript+' ';if(typeof item[0].confidence==='number'&&item[0].confidence<0.55)lowConfidence=true}else live+=item[0].transcript}
     setTranscript((finalText||'')+live)
     if(finalText.trim()){
+     if(lowConfidence){setMessage(language==='ro'?'Recunoașterea nu este suficient de sigură. Repetă mai clar sau scrie comanda.':'Recognition confidence is low. Please retry clearly or type the command.');return}
      const parsed=parseTranscript(finalText,language)
      if(parsed.length){setDrafts(current=>[...current,...parsed]);setMessage('')}
      else setMessage(language==='ro'?'Nu am înțeles comanda. Încearcă din nou sau scrie ce dorești.':'I did not understand. Try again or type what you want.')
@@ -110,6 +115,12 @@ export default function VoiceAssistant({userId,language}:{userId?:string;languag
   }catch{setListening(false);setMessage(language==='ro'?'Nu am putut porni microfonul. Verifică permisiunea browserului.':'Could not start microphone. Check browser permission.')}
  }
  function updateDraft(id:string,patch:Partial<Draft>){setDrafts(current=>current.map(d=>d.id===id?{...d,...patch,uncertain:undefined}:d))}
+ async function saveGlassSize(){
+  if(!supabase||!userId)return
+  if(!Number.isInteger(glassMl)||glassMl<50||glassMl>2000){setMessage(language==='ro'?'Volumul paharului trebuie să fie între 50 și 2.000 ml.':'Glass size must be between 50 and 2,000 ml.');return}
+  const {error}=await supabase.from('wellness_goals').upsert({user_id:userId,glass_size_ml:glassMl},{onConflict:'user_id'})
+  setMessage(error?(error as Error).message:(language==='ro'?'Volumul paharului a fost salvat.':'Glass size saved.'))
+ }
  async function confirm(d:Draft){
   if(!supabase||!userId)return
   if(d.uncertain||!d.item.trim()||!d.amount.trim()||(d.intent==='medication'&&!d.time)){setMessage(language==='ro'?'Completează elementele marcate înainte de confirmare.':'Complete the missing fields before confirming.');return}
@@ -147,6 +158,7 @@ export default function VoiceAssistant({userId,language}:{userId?:string;languag
  }
  return <section className="panel voice-panel">
   <div className="voice-head"><div><h3>{language==='ro'?'Comenzi vocale':'Voice commands'}</h3><p>{language==='ro'?'Spune ce ai mâncat, câtă apă ai băut sau ce medicament vrei să programezi.':'Log a meal, water or schedule a medication by speaking.'}</p></div><button type="button" className={listening?'voice-mic listening':'voice-mic'} onClick={()=>listening?recognizer.current?.stop():start()} aria-label={listening?(language==='ro'?'Oprește ascultarea':'Stop listening'):(language==='ro'?'Pornește microfonul':'Start microphone')}><Mic size={19}/>{listening?(language==='ro'?'Ascult…':'Listening…'):(language==='ro'?'Vorbește':'Speak')}</button></div>
+  <div className="voice-glass-setting"><label>{language==='ro'?'Volumul paharului tău (ml)':'Your glass size (ml)'}<input type="number" min="50" max="2000" step="10" value={glassMl} onChange={e=>setGlassMl(Number(e.target.value))}/></label><button type="button" className="outline-button" onClick={()=>void saveGlassSize()}>{language==='ro'?'Salvează':'Save'}</button></div>
   <p className="voice-transcript" aria-live="polite">{transcript|| (language==='ro'?'Transcrierea va apărea aici.':'Your live transcript will appear here.')}</p>
   <div className="voice-typed"><button type="button" className="outline-button" onClick={()=>setTyped(x=>!x)}><Type size={15}/>{language==='ro'?'Scrie comanda':'Type command'}</button>{typed&&<div><input value={transcript} onChange={e=>setTranscript(e.target.value)} placeholder={language==='ro'?'Ex.: Am băut un pahar cu apă':'e.g. I drank a glass of water'}/><button type="button" className="outline-button" onClick={addTyped}>{language==='ro'?'Interpretează':'Parse'}</button></div>}</div>
   {drafts.map(d=><article className="voice-draft" key={d.id}><div className="voice-draft-head"><strong>{language==='ro'?'Verifică înainte de salvare':'Review before saving'} · {d.intent==='meal'?(language==='ro'?'Masă':'Meal'):d.intent==='water'?(language==='ro'?'Hidratare':'Water'):(language==='ro'?'Medicament':'Medication')}</strong><button type="button" onClick={()=>cancel(d.id)} aria-label="Cancel"><X size={16}/></button></div>
