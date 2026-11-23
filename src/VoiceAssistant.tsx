@@ -35,7 +35,7 @@ const normalize = (s:string) => s.toLocaleLowerCase().normalize('NFD').replace(/
 const parseTime = (s:string) => {
   const t=normalize(s)
   const words:Record<string,number>={unu:1,una:1,doi:2,doua:2,trei:3,patru:4,cinci:5,sase:6,sapte:7,opt:8,noua:9,zece:10,unsprezece:11,douasprezece:12}
-  const word=Object.keys(words).find(k=>t.includes(k))
+  const word=Object.keys(words).find(k=>t.split(/\\s+/).includes(k))
   if(word&&/(seara|dupa amiaza|pm)/.test(t))return String((words[word]%12)+12).padStart(2,'0')+':00'
   if(word&&/(dimineata|am)/.test(t))return String(words[word]%12).padStart(2,'0')+':00'
   const m=t.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/) || t.match(/\b(?:ora\s*)?(\d{1,2})(?::(\d{2}))?\s*(?:si)?\s*(dimineata|dupa amiaza|seara|noaptea)\b/) || t.match(/\b(\d{1,2})(?::(\d{2}))?\b/)
