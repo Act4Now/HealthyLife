@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Bell, CalendarDays, Check, Clock3, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Bell, CalendarDays, Check, Clock3, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 type MealPlan = { id:string; planned_for:string; slot_name:string; meal_name:string; reminder_enabled:boolean; snoozed_until:string|null; reminder_sent_at:string|null; eaten_at:string|null }
@@ -20,6 +20,7 @@ export default function PlannerAndProgress({userId}:{userId?:string}) {
  const [permission,setPermission]=useState(typeof Notification==='undefined'?'unsupported':Notification.permission)
  const [message,setMessage]=useState('')
  const [busy,setBusy]=useState(false)
+ const [editingId,setEditingId]=useState<string|null>(null)
  const weekDays=useMemo(()=>Array.from({length:7},(_,i)=>{const d=new Date(week);d.setDate(d.getDate()+i);return d}),[week])
  const load=useCallback(async()=>{
   if(!supabase||!userId)return
@@ -51,11 +52,25 @@ export default function PlannerAndProgress({userId}:{userId?:string}) {
  async function addPlan(){
   if(!supabase||!userId){setMessage('Autentificarea este necesară.');return}
   if(!meal.trim()){setMessage('Introdu numele mesei.');return}
-  const result=await supabase.from('meal_plans').insert({user_id:userId,planned_for:new Date(when).toISOString(),slot_name:slot,meal_name:meal.trim(),reminder_enabled:reminder}).select('*').single()
-  if(result.error){setMessage(result.error.message);return}
-  setPlans(current=>[...current,result.data as MealPlan].sort((a,b)=>a.planned_for.localeCompare(b.planned_for)))
-  setMeal('');setMessage('Masa a fost adăugată în plan.')
+  const values={planned_for:new Date(when).toISOString(),slot_name:slot,meal_name:meal.trim(),reminder_enabled:reminder}
+  if(editingId){
+   const result=await supabase.from('meal_plans').update({...values,reminder_sent_at:null,snoozed_until:null}).eq('id',editingId).eq('user_id',userId).select('*').single()
+   if(result.error){setMessage(result.error.message);return}
+   setPlans(current=>current.map(p=>p.id===editingId?result.data as MealPlan:p).sort((a,b)=>a.planned_for.localeCompare(b.planned_for)))
+   setEditingId(null);setMessage('Masa planificată a fost actualizată.')
+  }else{
+   const result=await supabase.from('meal_plans').insert({user_id:userId,...values}).select('*').single()
+   if(result.error){setMessage(result.error.message);return}
+   setPlans(current=>[...current,result.data as MealPlan].sort((a,b)=>a.planned_for.localeCompare(b.planned_for)))
+   setMessage('Masa a fost adăugată în plan.')
+  }
+  setMeal('')
  }
+ function editPlan(p:MealPlan){
+  setEditingId(p.id);setMeal(p.meal_name);setSlot(p.slot_name);setWhen(dateTimeLocal(p.planned_for));setReminder(p.reminder_enabled);setDay(roDate(new Date(p.planned_for)))
+  setMessage('Editezi masa selectată. Salvează modificările sau anulează editarea.')
+ }
+ function cancelEdit(){setEditingId(null);setMeal('');setMessage('Editarea a fost anulată.')}
  async function askPermission(){
   if(typeof Notification==='undefined'){setMessage('Acest browser nu oferă notificări web.');return}
   const result=await Notification.requestPermission();setPermission(result)
@@ -125,9 +140,10 @@ export default function PlannerAndProgress({userId}:{userId?:string}) {
     <label>Tipul mesei<select value={slot} onChange={e=>setSlot(e.target.value)}><option>Mic dejun</option><option>Prânz</option><option>Cină</option><option>Gustare</option></select></label>
     <label className="planner-meal-name">Masă planificată<input value={meal} onChange={e=>setMeal(e.target.value)} placeholder="Ex.: Ovăz cu iaurt și fructe"/></label>
     <label className="planner-check"><input type="checkbox" checked={reminder} onChange={e=>setReminder(e.target.checked)}/> Activează mementoul</label>
-    <button className="save-meal-button" onClick={()=>void addPlan()}><Plus size={16}/> Adaugă în plan</button>
+    <button className="save-meal-button" onClick={()=>void addPlan()}>{editingId?<><Check size={16}/> Salvează modificările</>:<><Plus size={16}/> Adaugă în plan</>}</button>
+    {editingId&&<button type="button" className="outline-button" onClick={cancelEdit}>Anulează editarea</button>}
    </div>
-   <div className="planner-list">{plans.filter(p=>roDate(new Date(p.planned_for))===day).map(p=><article className="planner-item" key={p.id}><div><strong>{p.slot_name} · {new Date(p.planned_for).toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})}</strong><span>{p.meal_name}</span><small>{p.eaten_at?'Marcată ca efectuată':p.reminder_enabled?'Memento activ':'Fără memento'}</small></div><div className="planner-actions">{!p.eaten_at&&<button title="Marchează efectuată" onClick={()=>void markDone(p)}><Check size={15}/></button>}{p.reminder_enabled&&!p.eaten_at&&<button title="Amână 10 minute" onClick={()=>void snooze(p)}><Clock3 size={15}/></button>}<button title="Șterge din plan" onClick={()=>void remove(p)}><Trash2 size={15}/></button></div></article>)}{!plans.some(p=>roDate(new Date(p.planned_for))===day)&&<p className="empty-logs">Nu ai mese planificate pentru această zi.</p>}</div>
+   <div className="planner-list">{plans.filter(p=>roDate(new Date(p.planned_for))===day).map(p=><article className="planner-item" key={p.id}><div><strong>{p.slot_name} · {new Date(p.planned_for).toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})}</strong><span>{p.meal_name}</span><small>{p.eaten_at?'Marcată ca efectuată':p.reminder_enabled?'Memento activ':'Fără memento'}</small></div><div className="planner-actions"><button title="Editează masa" aria-label="Editează masa" onClick={()=>editPlan(p)}><Pencil size={15}/></button>{!p.eaten_at&&<button title="Marchează efectuată" onClick={()=>void markDone(p)}><Check size={15}/></button>}{p.reminder_enabled&&!p.eaten_at&&<button title="Amână 10 minute" onClick={()=>void snooze(p)}><Clock3 size={15}/></button>}<button title="Șterge din plan" onClick={()=>void remove(p)}><Trash2 size={15}/></button></div></article>)}{!plans.some(p=>roDate(new Date(p.planned_for))===day)&&<p className="empty-logs">Nu ai mese planificate pentru această zi.</p>}</div>
    <div className="planner-reminders"><Bell size={17}/><span>Permisiune notificări: <strong>{permission}</strong>. Mementourile din această versiune apar cât timp aplicația este deschisă în browser.</span><button className="outline-button" onClick={()=>void askPermission()}>Activează notificările</button></div>
   </section>
   <section className="panel planner-panel">
