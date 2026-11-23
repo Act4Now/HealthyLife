@@ -11,6 +11,14 @@ type Profile = {
   onboarding_completed_at: string | null
   onboarding_skipped_at: string | null
   has_daily_targets: boolean
+  preferences?: {
+    locale?: string
+    theme?: 'light' | 'dark' | 'auto'
+    text_size?: 'normal' | 'large'
+    weight_unit?: 'kg' | 'lb'
+    height_unit?: 'cm' | 'ft'
+    dashboard_widgets?: string[]
+  } | null
 }
 
 type AuthContextValue = {
@@ -41,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name, locale, timezone, onboarding_completed_at, onboarding_skipped_at')
+      .select('id, display_name, locale, timezone, onboarding_completed_at, onboarding_skipped_at, preferences')
       .eq('id', user.id)
       .maybeSingle()
     if (error) throw error
