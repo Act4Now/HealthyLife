@@ -21,6 +21,8 @@ export default function PlannerAndProgress({userId}:{userId?:string}) {
  const [message,setMessage]=useState('')
  const [busy,setBusy]=useState(false)
  const [editingId,setEditingId]=useState<string|null>(null)
+ const [editingSuggestionId,setEditingSuggestionId]=useState<string|null>(null)
+ const [editedSuggestionValue,setEditedSuggestionValue]=useState('')
  const weekDays=useMemo(()=>Array.from({length:7},(_,i)=>{const d=new Date(week);d.setDate(d.getDate()+i);return d}),[week])
  const load=useCallback(async()=>{
   if(!supabase||!userId)return
@@ -123,6 +125,19 @@ export default function PlannerAndProgress({userId}:{userId?:string}) {
    await load();setMessage('Analiza ultimelor 14 zile a fost salvată. Sugestiile nu modifică automat obiectivele.')
   }catch(e){setMessage(e instanceof Error?e.message:'Nu am putut analiza progresul.')}finally{setBusy(false)}
  }
+ function beginSuggestionEdit(s:Suggestion){
+  setEditingSuggestionId(s.id)
+  setEditedSuggestionValue(s.suggested_value===null?'':String(s.suggested_value))
+ }
+ async function saveSuggestionEdit(s:Suggestion){
+  if(!supabase||!userId)return
+  const value=editedSuggestionValue.trim()===''?null:Number(editedSuggestionValue)
+  if(value!==null&&(!Number.isFinite(value)||value<0)){setMessage('Introdu o valoare numerică validă, pozitivă sau zero.');return}
+  const {error}=await supabase.from('progress_suggestions').update({suggested_value:value,status:'edited',resolved_at:new Date().toISOString()}).eq('id',s.id).eq('user_id',userId)
+  if(error){setMessage(error.message);return}
+  setSuggestions(current=>current.map(x=>x.id===s.id?{...x,suggested_value:value,status:'edited'}:x))
+  setEditingSuggestionId(null);setMessage('Valoarea sugestiei a fost salvată. Obiectivele nu au fost modificate automat.')
+ }
  async function resolveSuggestion(s:Suggestion,status:'accepted'|'edited'|'dismissed'){
   if(!supabase||!userId)return
   const {error}=await supabase.from('progress_suggestions').update({status,resolved_at:new Date().toISOString()}).eq('id',s.id).eq('user_id',userId)
@@ -149,7 +164,9 @@ export default function PlannerAndProgress({userId}:{userId?:string}) {
   <section className="panel planner-panel">
    <div className="panel-heading"><div><h3><RefreshCw size={19}/> Sugestii după 14 zile</h3><p>Analiză bazată pe înregistrările tale, nu pe valori presupuse.</p></div></div>
    <button className="save-meal-button" disabled={busy} onClick={()=>void generateSuggestions()}>{busy?'Se analizează…':'Analizează ultimele 14 zile'}</button>
-   {suggestions.map(s=><article className="progress-suggestion" key={s.id}><small>{new Date(s.created_at).toLocaleDateString('ro-RO')} · {s.suggestion_type}</small><p>{s.reason}</p><strong>{s.status==='pending'?'În așteptare':s.status==='dismissed'?'Respinsă':s.status==='accepted'?'Acceptată':'Modificată'}</strong>{s.status==='pending'&&<div className="planner-actions"><button onClick={()=>void resolveSuggestion(s,'accepted')}>Accept</button><button onClick={()=>void resolveSuggestion(s,'edited')}>Revizuiesc</button><button onClick={()=>void resolveSuggestion(s,'dismissed')}>Respinge</button></div>}</article>)}
+   {suggestions.map(s=><article className="progress-suggestion" key={s.id}><small>{new Date(s.created_at).toLocaleDateString('ro-RO')} · {s.suggestion_type}</small><p>{s.reason}</p><strong>{s.status==='pending'?'În așteptare':s.status==='dismissed'?'Respinsă':s.status==='accepted'?'Acceptată':'Modificată'}</strong>{s.status==='pending'&&<div className="planner-actions"><button onClick={()=>void resolveSuggestion(s,'accepted')}>Accept</button><button onClick={()=>beginSuggestionEdit(s)}>Editează valoarea</button><button onClick={()=>void resolveSuggestion(s,'dismissed')}>Respinge</button></div>}
+   {editingSuggestionId===s.id&&<div className="suggestion-edit"><label>Valoare propusă<input type="number" min="0" step="any" value={editedSuggestionValue} onChange={e=>setEditedSuggestionValue(e.target.value)} placeholder="Introdu valoarea"/></label><div className="planner-actions"><button onClick={()=>void saveSuggestionEdit(s)}>Salvează valoarea</button><button onClick={()=>setEditingSuggestionId(null)}>Anulează</button></div></div>}
+   {s.current_value!==null&&<small>Valoare curentă: {s.current_value} · propusă: {s.suggested_value??'—'}</small>}</article>)}
    {!suggestions.length&&<p className="empty-logs">Nu există sugestii generate încă.</p>}
    <p className="calorie-disclaimer">Sugestiile sunt orientative, nu recomandări medicale. Nu schimbă automat obiectivele și pot fi respinse. Analiza are nevoie de date reale înregistrate în cont în ultimele 14 zile.</p>
   </section>
