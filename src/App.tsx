@@ -12,6 +12,7 @@ import PlannerAndProgress from './planner/PlannerAndProgress'
 import VoiceAssistant from './VoiceAssistant'
 import TodayOverview from './dashboard/TodayOverview'
 import { supabase } from './lib/supabase'
+import versionInfo from '../version.json'
 
 type Language = 'ro' | 'en'
 
@@ -24,8 +25,8 @@ const copy = {
     emptyTitle: 'Nu există încă înregistrări pentru astăzi',
     emptyText: 'Nu afișăm valori demonstrative. Adaugă apă, mese, medicamente sau măsurători în modulele de mai jos, iar rezumatul va reflecta doar datele salvate în contul tău.',
     privacy: 'Datele personale sunt afișate doar după autentificare.',
-    helpText: 'Alege un modul din meniul lateral. Înregistrările salvate în cont vor apărea în Istoric.',
-    footer: 'HealthyLife · v2.1.0',
+    helpText: 'Alege un modul din meniul principal. Înregistrările salvate în cont vor apărea în Istoric.',
+    footer: `HealthyLife · v${versionInfo.version}`,
     offline: 'Ești offline. Poți vedea aplicația, dar datele nu se pot încărca sau salva până revii online.',
   },
   en: {
@@ -36,8 +37,8 @@ const copy = {
     emptyTitle: 'No entries recorded for today yet',
     emptyText: 'We do not show demonstration values. Add water, meals, medication or measurements in the modules below; the overview will reflect only data saved to your account.',
     privacy: 'Personal data is shown only after you sign in.',
-    helpText: 'Choose a module from the sidebar. Entries saved to your account will appear in History.',
-    footer: 'HealthyLife · v2.1.0',
+    helpText: 'Choose a module from the menu. Entries saved to your account will appear in History.',
+    footer: `HealthyLife · v${versionInfo.version}`,
     offline: 'You are offline. You can open the app, but data cannot load or save until you are back online.',
   },
 }
@@ -130,11 +131,21 @@ function Dashboard({ auth }: { auth: ReturnType<typeof useAuth> }) {
         <div><p className="eyebrow">{date}</p><h1>{t.welcome}</h1><p>{t.subtitle}</p></div>
       </section>
 
+      {active === 'dashboard' && <nav className="home-shortcuts" aria-label={lang === 'ro' ? 'Funcții principale' : 'Main functions'}>
+        {nav.filter(item => item.id !== 'dashboard').map(item => {
+          const Icon = item.icon
+          return <button key={item.id} type="button" className="home-shortcut" onClick={() => setActive(item.id)}><Icon size={17}/><span>{item.label}</span></button>
+        })}
+        <button type="button" className="home-shortcut" onClick={() => setActive('settings')}><Settings size={17}/><span>{t.settings}</span></button>
+      </nav>}
+
       {auth.user && auth.profile && (!auth.profile.onboarding_completed_at || !auth.profile.has_daily_targets) && !auth.profile.onboarding_skipped_at && <PersonalGoals userId={auth.user.id} onboarding onComplete={() => void auth.refreshProfile()} onSkip={() => void auth.refreshProfile()} />}
 
       <div className="section-heading">
         <div><h2>{active === 'dashboard' ? t.overview : selectedTitle}</h2><p>{date}</p></div>
-        <button className="outline-button" onClick={() => setActive('history')}><CalendarDays size={16}/>{t.history}</button>
+        {active === 'dashboard'
+          ? <button className="outline-button" onClick={() => setActive('history')}><CalendarDays size={16}/>{t.history}</button>
+          : <button className="outline-button back-home-button" onClick={() => setActive('dashboard')}><Activity size={16}/>{lang === 'ro' ? 'Înapoi la meniul principal' : 'Back to main menu'}</button>}
       </div>
 
       {active === 'dashboard' ? <><VoiceAssistant userId={auth.user?.id} language={lang}/><TodayOverview userId={auth.user?.id} language={lang} widgets={auth.profile?.preferences?.dashboard_widgets} weightUnit={auth.profile?.preferences?.weight_unit} onNavigate={setActive}/></> : active === 'meals' ? <MealCalorieTracker userId={auth.user?.id}/> : active === 'history' ? <HistoryTracker userId={auth.user?.id}/> : active === 'recipes' ? <RecipeGenerator/> : active === 'planner' ? <PlannerAndProgress userId={auth.user?.id}/> : active === 'hydration' || active === 'medication' || active === 'weight' ? <WellnessTracker module={active as 'hydration'|'medication'|'weight'} userId={auth.user?.id}/> : active === 'settings' ? <><UserPreferences userId={auth.user?.id} email={auth.user?.email ?? ''} onLanguageChange={setLang} onSaved={() => void auth.refreshProfile()} language={lang}/><PersonalGoals userId={auth.user?.id} onComplete={() => void auth.refreshProfile()}/></> : <section className="panel placeholder-panel"><div className="placeholder-icon"><CircleHelp size={25}/></div><h3>{t.help}</h3><p>{t.helpText}</p></section>}
