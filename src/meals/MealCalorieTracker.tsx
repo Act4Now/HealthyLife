@@ -42,7 +42,6 @@ export default function MealCalorieTracker({ userId }: { userId?: string }) {
   const [editingRecipeId, setEditingRecipeId] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [saving, setSaving] = useState(false)
-  const [analyzing, setAnalyzing] = useState(false)
   const [analysisNote, setAnalysisNote] = useState('')
   const [customFoods, setCustomFoods] = useState<CustomFood[]>([])
   const [customRecipes, setCustomRecipes] = useState<CustomRecipe[]>([])
@@ -315,7 +314,7 @@ Use numeric values. If portion size cannot be determined, give a cautious estima
       else if (logDate === localDate()) setLogs(current => [result.data as MealLog, ...current])
       else setLogDate(localDate())
       setMessage(editingMealId ? 'Masa a fost actualizată.' : 'Masa a fost salvată în istoricul profilului.')
-      setEditingMealId(null); setDescription(''); setPhoto(null); setPhotoPreview(''); setAnalysisNote(''); setPhotoConsent(false); setItems([])
+      setEditingMealId(null); setDescription(''); setPhoto(null); setPhotoPreview(''); setAnalysisNote(''); setItems([])
     } catch (e) {
       const detail = e instanceof Error ? e.message : e && typeof e === 'object' && 'message' in e && typeof e.message === 'string' ? e.message : ''
       setMessage(detail ? 'Nu am putut salva masa: ' + detail : 'Nu am putut salva masa. Verifică autentificarea și conexiunea la baza de date.')
