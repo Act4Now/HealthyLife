@@ -19,8 +19,6 @@ self.addEventListener('push', (event) => {
   const title = typeof payload.title === 'string' ? payload.title : 'HealthyLife'
   const options = {
     body: typeof payload.body === 'string' ? payload.body : 'Ai un memento pentru obiceiurile tale sănătoase.',
-    icon: APP_BASE + 'icons/icon-192.png',
-    badge: APP_BASE + 'icons/icon-192.png',
     tag: typeof payload.tag === 'string' ? payload.tag : 'healthylife-reminder',
     data: { url: typeof payload.url === 'string' ? payload.url : APP_BASE },
     renotify: false,
