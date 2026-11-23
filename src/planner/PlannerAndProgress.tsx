@@ -6,6 +6,12 @@ type MealPlan = { id:string; planned_for:string; slot_name:string; meal_name:str
 type Suggestion = { id:string; suggestion_type:string; current_value:number|null; suggested_value:number|null; reason:string; status:string; created_at:string }
 const roDate = (d:Date) => new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10)
 const startOfWeek = () => { const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-((d.getDay()+6)%7)); return d }
+const vapidKeyToBytes = (value:string) => {
+ const padding='='.repeat((4-value.length%4)%4)
+ const base64=(value+padding).replace(/-/g,'+').replace(/_/g,'/')
+ const raw=window.atob(base64)
+ return Uint8Array.from([...raw].map(char=>char.charCodeAt(0)))
+}
 const dateTimeLocal = (value:string) => { const d=new Date(value); return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,16) }
 
 export default function PlannerAndProgress({userId}:{userId?:string}) {
@@ -77,6 +83,28 @@ export default function PlannerAndProgress({userId}:{userId?:string}) {
   if(typeof Notification==='undefined'){setMessage('Acest browser nu oferă notificări web.');return}
   const result=await Notification.requestPermission();setPermission(result)
   setMessage(result==='granted'?'Notificările sunt activate. Vor apărea cât timp HealthyLife este deschis.':'Permisiunea pentru notificări nu a fost acordată.')
+ }
+ async function enablePushNotifications(){
+  if(!supabase||!userId){setMessage('Autentificarea este necesară.');return}
+  if(!('serviceWorker' in navigator)||!('PushManager' in window)||!('Notification' in window)){setMessage('Acest browser nu acceptă notificări push.');return}
+  const publicKey=(import.meta as ImportMeta & {env:ImportMetaEnv & {VITE_VAPID_PUBLIC_KEY?:string}}).env.VITE_VAPID_PUBLIC_KEY
+  if(!publicKey){setMessage('Lipsește VITE_VAPID_PUBLIC_KEY din configurația build-ului.');return}
+  try{
+   const permissionResult=await Notification.requestPermission()
+   setPermission(permissionResult)
+   if(permissionResult!=='granted'){setMessage('Permisiunea pentru notificări nu a fost acordată.');return}
+   const registration=await navigator.serviceWorker.ready
+   let subscription=await registration.pushManager.getSubscription()
+   if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:vapidKeyToBytes(publicKey)})
+   const json=subscription.toJSON()
+   const keys=json.keys
+   if(!json.endpoint||!keys?.p256dh||!keys.auth)throw new Error('Browserul nu a returnat toate datele abonamentului push.')
+   const {error}=await supabase.from('push_subscriptions').upsert({
+    user_id:userId,endpoint:json.endpoint,p256dh:keys.p256dh,auth:keys.auth,updated_at:new Date().toISOString()
+   },{onConflict:'user_id,endpoint'})
+   if(error)throw error
+   setMessage('Notificările push sunt activate pentru acest browser.')
+  }catch(error){setMessage(error instanceof Error?error.message:'Nu am putut activa notificările push.')}
  }
  async function snooze(p:MealPlan){
   if(!supabase||!userId)return
@@ -159,7 +187,7 @@ export default function PlannerAndProgress({userId}:{userId?:string}) {
     {editingId&&<button type="button" className="outline-button" onClick={cancelEdit}>Anulează editarea</button>}
    </div>
    <div className="planner-list">{plans.filter(p=>roDate(new Date(p.planned_for))===day).map(p=><article className="planner-item" key={p.id}><div><strong>{p.slot_name} · {new Date(p.planned_for).toLocaleTimeString('ro-RO',{hour:'2-digit',minute:'2-digit'})}</strong><span>{p.meal_name}</span><small>{p.eaten_at?'Marcată ca efectuată':p.reminder_enabled?'Memento activ':'Fără memento'}</small></div><div className="planner-actions"><button title="Editează masa" aria-label="Editează masa" onClick={()=>editPlan(p)}><Pencil size={15}/></button>{!p.eaten_at&&<button title="Marchează efectuată" onClick={()=>void markDone(p)}><Check size={15}/></button>}{p.reminder_enabled&&!p.eaten_at&&<button title="Amână 10 minute" onClick={()=>void snooze(p)}><Clock3 size={15}/></button>}<button title="Șterge din plan" onClick={()=>void remove(p)}><Trash2 size={15}/></button></div></article>)}{!plans.some(p=>roDate(new Date(p.planned_for))===day)&&<p className="empty-logs">Nu ai mese planificate pentru această zi.</p>}</div>
-   <div className="planner-reminders"><Bell size={17}/><span>Permisiune notificări: <strong>{permission}</strong>. Mementourile din această versiune apar cât timp aplicația este deschisă în browser.</span><button className="outline-button" onClick={()=>void askPermission()}>Activează notificările</button></div>
+   <div className="planner-reminders"><Bell size={17}/><span>Permisiune notificări: <strong>{permission}</strong>. Mementourile din această versiune apar cât timp aplicația este deschisă în browser.</span><button className="outline-button" onClick={()=>void askPermission()}>Mementouri în aplicație</button><button className="outline-button" onClick={()=>void enablePushNotifications()}>Activează push în fundal</button></div>
   </section>
   <section className="panel planner-panel">
    <div className="panel-heading"><div><h3><RefreshCw size={19}/> Sugestii după 14 zile</h3><p>Analiză bazată pe înregistrările tale, nu pe valori presupuse.</p></div></div>
