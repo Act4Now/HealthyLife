@@ -34,6 +34,14 @@ class AppErrorBoundary extends React.Component<React.PropsWithChildren, ErrorBou
   }
 }
 
+// Register the service worker for app-shell push delivery support.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    void navigator.serviceWorker.register('/HealthyLife/sw.js', { scope: '/HealthyLife/' })
+      .catch((error: unknown) => console.error('HealthyLife service worker registration failed:', error))
+  }, { once: true })
+}
+
 const rootElement = document.getElementById('root')
 if (!rootElement) {
   document.body.innerHTML = '<main style="padding:24px;font-family:sans-serif">HealthyLife: elementul aplicației nu a fost găsit în pagină.</main>'
