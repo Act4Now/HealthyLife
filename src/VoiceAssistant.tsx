@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Mic, Check, Pencil, X, Undo2, Type } from 'lucide-react'
 import { supabase } from './lib/supabase'
 
-type Intent = 'meal' | 'water' | 'medication'
+type Intent = 'meal' | 'water' | 'medication' | 'weight'
 type Draft = {
   id: string
   intent: Intent
@@ -15,7 +15,7 @@ type Draft = {
   options?: string[]
   uncertain?: string
 }
-type Saved = { table: 'meal_logs' | 'hydration_logs' | 'medications'; id: string; label: string }
+type Saved = { table: 'meal_logs' | 'hydration_logs' | 'medications' | 'weight_logs'; id: string; label: string }
 type Recognition = {
   lang: string
   interimResults: boolean
@@ -61,6 +61,13 @@ function parseTranscript(raw:string, language:'ro'|'en'):Draft[]{
   const drafts:Draft[]=[]
   for(const part of parts){
     const future=/(remind|reminder|set|schedule|aminteste|seteaza|programeaza|pastila|medicament)/.test(part)&&/(remind|reminder|set|schedule|aminteste|seteaza|programeaza)/.test(part)
+    const weightMatch=part.match(/(?:weight|weigh|greutate|cantaresc|cantareste|m am cantarit)\\s*(?:este|e|is|de)?\\s*(\\d{2,3}(?:[.,]\\d+)?)\\s*(kg|kilograme?|kilos?|lb|lbs|livre)?/)
+    if(weightMatch){
+      const value=Number(weightMatch[1].replace(',','.'))
+      const unit=weightMatch[2]??'kg'
+      const kg=/^(lb|lbs|livre)/.test(unit)?value/2.2046226218:value
+      drafts.push({id:makeId(),intent:'weight',item:language==='ro'?'Greutate':'Weight',amount:value+' '+unit,time:new Date().toTimeString().slice(0,5),date:today(),uncertain:!Number.isFinite(kg)||kg<20||kg>500?(language==='ro'?'Greutatea trebuie să fie între 20 și 500 kg.':'Weight must be between 20 and 500 kg.'):undefined})
+    }
     const drank=/(drank|drink|had|beau|baut|ba ut|am baut|apa|water)/.test(part)&&/(glass|pahar|water|apa|drank|beau|baut)/.test(part)
     const mealVerb=/(ate|had|eaten|mancat|mananc|consumat|am mancat)/.test(part)
     if(future){
@@ -149,6 +156,14 @@ export default function VoiceAssistant({userId,language}:{userId?:string;languag
     if(!Number.isFinite(amountMl)||amountMl<1||amountMl>5000)throw new Error(language==='ro'?'Cantitatea de apă trebuie să fie între 1 și 5.000 ml.':'Water amount must be between 1 and 5,000 ml.')
     const {data,error}=await supabase.from('hydration_logs').insert({user_id:userId,amount_ml:amountMl}).select('id').single()
     result={data,error};entry={table:'hydration_logs',id:data?.id??'',label:`${amountMl} ml`}
+   }else if(d.intent==='weight'){
+    const match=d.amount.match(/(\\d+(?:[.,]\\d+)?)\\s*(kg|kilograme?|kilos?|lb|lbs|livre)?/i)
+    if(!match)throw new Error(language==='ro'?'Introdu greutatea în kg sau lb.':'Enter weight in kg or lb.')
+    const value=Number(match[1].replace(',','.'))
+    const kg=/^(lb|lbs|livre)/i.test(match[2]??'kg')?value/2.2046226218:value
+    if(!Number.isFinite(kg)||kg<20||kg>500)throw new Error(language==='ro'?'Greutatea trebuie să fie între 20 și 500 kg.':'Weight must be between 20 and 500 kg.')
+    const {data,error}=await supabase.from('weight_logs').insert({user_id:userId,weight_kg:Number(kg.toFixed(2)),measured_at:new Date(d.date+'T12:00:00').toISOString(),notes:'Voice assistant'}).select('id').single()
+    result={data,error};entry={table:'weight_logs',id:data?.id??'',label:d.amount}
    }else{
     const {data,error}=await supabase.from('medications').insert({user_id:userId,name:d.item,dose:d.dose||d.amount,schedule:d.time,notes:`Voice assistant · ${d.repeat}`,starts_on:d.date,ends_on:new Date(new Date(d.date+'T12:00:00').getTime()+(Math.max(1,Number((d.repeat??'').match(/\d+/)?.[0]??1))-1)*86400000).toISOString().slice(0,10)}).select('id').single()
     result={data,error};entry={table:'medications',id:data?.id??'',label:d.item}
@@ -168,7 +183,7 @@ export default function VoiceAssistant({userId,language}:{userId?:string;languag
  function cancel(id:string){setDrafts(current=>current.filter(d=>d.id!==id));if(editing===id)setEditing(null)}
  function addTyped(){
   const parsed=parseTranscript(transcript,language)
-  if(!parsed.length){setMessage(language==='ro'?'Nu am identificat o comandă. Încearcă „am băut un pahar cu apă” sau „am mâncat o plăcintă”.':'No command recognized. Try “I drank a glass of water” or “I had a piece of pie”.');return}
+  if(!parsed.length){setMessage(language==='ro'?'Nu am identificat o comandă. Încearcă „am băut un pahar cu apă” sau „greutatea mea este 70 kg”.':'No command recognized. Try “I drank a glass of water” or “my weight is 70 kg”.');return}
   setDrafts(current=>[...current,...parsed]);setTyped(false);setMessage('')
  }
  return <section className="panel voice-panel">
@@ -176,7 +191,7 @@ export default function VoiceAssistant({userId,language}:{userId?:string;languag
   <div className="voice-glass-setting"><label>{language==='ro'?'Volumul paharului tău (ml)':'Your glass size (ml)'}<input type="number" min="50" max="2000" step="10" value={glassMl} onChange={e=>setGlassMl(Number(e.target.value))}/></label><button type="button" className="outline-button" onClick={()=>void saveGlassSize()}>{language==='ro'?'Salvează':'Save'}</button></div>
   <p className="voice-transcript" aria-live="polite">{transcript|| (language==='ro'?'Transcrierea va apărea aici.':'Your live transcript will appear here.')}</p>
   <div className="voice-typed"><button type="button" className="outline-button" onClick={()=>setTyped(x=>!x)}><Type size={15}/>{language==='ro'?'Scrie comanda':'Type command'}</button>{typed&&<div><input value={transcript} onChange={e=>setTranscript(e.target.value)} placeholder={language==='ro'?'Ex.: Am băut un pahar cu apă':'e.g. I drank a glass of water'}/><button type="button" className="outline-button" onClick={addTyped}>{language==='ro'?'Interpretează':'Parse'}</button></div>}</div>
-  {drafts.map(d=><article className="voice-draft" key={d.id}><div className="voice-draft-head"><strong>{language==='ro'?'Verifică înainte de salvare':'Review before saving'} · {d.intent==='meal'?(language==='ro'?'Masă':'Meal'):d.intent==='water'?(language==='ro'?'Hidratare':'Water'):(language==='ro'?'Medicament':'Medication')}</strong><button type="button" onClick={()=>cancel(d.id)} aria-label="Cancel"><X size={16}/></button></div>
+  {drafts.map(d=><article className="voice-draft" key={d.id}><div className="voice-draft-head"><strong>{language==='ro'?'Verifică înainte de salvare':'Review before saving'} · {d.intent==='meal'?(language==='ro'?'Masă':'Meal'):d.intent==='water'?(language==='ro'?'Hidratare':'Water'):d.intent==='weight'?(language==='ro'?'Greutate':'Weight'):(language==='ro'?'Medicament':'Medication')}</strong><button type="button" onClick={()=>cancel(d.id)} aria-label="Cancel"><X size={16}/></button></div>
    {d.options&&<div className="voice-options"><p>{language==='ro'?'Alege alimentul potrivit:':'Choose the matching food:'}</p>{d.options.map(o=><button type="button" key={o} onClick={()=>updateDraft(d.id,{item:o,options:undefined})}>{o}</button>)}</div>}
    {d.uncertain&&<p className="voice-warning">{d.uncertain}</p>}
    {editing===d.id?<div className="voice-edit"><label>{language==='ro'?'Element':'Item'}<input value={d.item} onChange={e=>updateDraft(d.id,{item:e.target.value})}/></label><label>{language==='ro'?'Cantitate':'Amount'}<input value={d.amount} onChange={e=>updateDraft(d.id,{amount:e.target.value})}/></label>{d.intent==='medication'&&<><label>{language==='ro'?'Doză':'Dose'}<input value={d.dose} onChange={e=>updateDraft(d.id,{dose:e.target.value})}/></label><label>{language==='ro'?'Ora':'Time'}<input type="time" value={d.time} onChange={e=>updateDraft(d.id,{time:e.target.value})}/></label><label>{language==='ro'?'Repetare':'Repeat'}<input value={d.repeat} onChange={e=>updateDraft(d.id,{repeat:e.target.value})}/></label><label>{language==='ro'?'Data de început':'Start date'}<input type="date" value={d.date} onChange={e=>updateDraft(d.id,{date:e.target.value})}/></label></>}</div>:<dl><dt>{language==='ro'?'Element':'Item'}</dt><dd>{d.item||'—'}</dd><dt>{language==='ro'?'Cantitate':'Amount'}</dt><dd>{d.amount}</dd><dt>{language==='ro'?'Ora și data':'Time and date'}</dt><dd>{d.time} · {d.date}</dd><dt>{language==='ro'?'Repetare':'Repeat'}</dt><dd>{d.repeat||'O singură înregistrare'}</dd></dl>}
