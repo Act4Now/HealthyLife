@@ -139,7 +139,7 @@ export default function VoiceAssistant({userId,language}:{userId?:string;languag
     const {data,error}=await supabase.from('hydration_logs').insert({user_id:userId,amount_ml:amountMl}).select('id').single()
     result={data,error};entry={table:'hydration_logs',id:data?.id??'',label:`${amountMl} ml`}
    }else{
-    const {data,error}=await supabase.from('medications').insert({user_id:userId,name:d.item,dose:d.dose||d.amount,schedule:d.time,notes:`Voice assistant · ${d.repeat}`,starts_on:d.date,ends_on:new Date(new Date(d.date+'T12:00:00').getTime()+(Math.max(1,Number(d.repeat.match(/\d+/)?.[0]??1))-1)*86400000).toISOString().slice(0,10)}).select('id').single()
+    const {data,error}=await supabase.from('medications').insert({user_id:userId,name:d.item,dose:d.dose||d.amount,schedule:d.time,notes:`Voice assistant · ${d.repeat}`,starts_on:d.date,ends_on:new Date(new Date(d.date+'T12:00:00').getTime()+(Math.max(1,Number(d.repeat?.match(/\d+/)?.[0]??1))-1)*86400000).toISOString().slice(0,10)}).select('id').single()
     result={data,error};entry={table:'medications',id:data?.id??'',label:d.item}
    }
    if(result.error)throw result.error
