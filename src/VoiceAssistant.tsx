@@ -61,7 +61,7 @@ function parseTranscript(raw:string, language:'ro'|'en'):Draft[]{
   const drafts:Draft[]=[]
   for(const part of parts){
     const future=/(remind|reminder|set|schedule|aminteste|seteaza|programeaza|pastila|medicament)/.test(part)&&/(remind|reminder|set|schedule|aminteste|seteaza|programeaza)/.test(part)
-    const weightMatch=part.match(/(?:weight|weigh|greutate|cantaresc|cantareste|m am cantarit)\\s*(?:este|e|is|de)?\\s*(\\d{2,3}(?:[.,]\\d+)?)\\s*(kg|kilograme?|kilos?|lb|lbs|livre)?/)
+    const weightMatch=part.match(/(?:weight|weigh|greutatea mea|greutate|cantaresc|cantareste|m am cantarit)\\s*(?:este|e|is|de)?\\s*(\\d{2,3}(?:[.,]\\d+)?)\\s*(kg|kilograme?|kilos?|lb|lbs|livre)?/)
     if(weightMatch){
       const value=Number(weightMatch[1].replace(',','.'))
       const unit=weightMatch[2]??'kg'
