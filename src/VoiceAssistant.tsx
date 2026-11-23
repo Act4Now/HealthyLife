@@ -10,8 +10,8 @@ type Draft = {
   amount: string
   time: string
   date: string
-  repeat: string
-  dose: string
+  repeat?: string
+  dose?: string
   options?: string[]
   uncertain?: string
 }
