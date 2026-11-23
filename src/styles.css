@@ -243,3 +243,29 @@
 .voice-card-actions button:disabled{opacity:.45;cursor:not-allowed}
 .voice-added{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:10px;border-radius:9px;background:#eff7ed;color:#426c50;font-size:11px}
 @media(max-width:560px){.voice-panel{padding:15px}.voice-head{align-items:flex-start;flex-direction:column}.voice-mic{width:100%;justify-content:center}.voice-edit{grid-template-columns:1fr}}
+
+/* ---- 2.1.0: dashboard overview, recent meals, widget settings, slots, offline banner ---- */
+.overview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:6px}
+.overview-card{display:flex;flex-direction:column;gap:6px;min-height:150px}
+.overview-card h3{display:flex;align-items:center;gap:6px}
+.overview-empty{margin-top:18px;text-align:center;color:#6d7f72;font-size:12px}
+.overview-note{font-size:11px;color:#6d7f72;margin:2px 0}
+.overview-footnote{font-size:10px;color:#91a096;margin:10px 2px 0}
+.overview-reminder{font-size:11px;color:#8a5a12;background:#fbf3e3;border-radius:8px;padding:7px 9px;margin:4px 0}
+.overview-macros{display:grid;gap:6px;margin-top:6px}
+.overview-macro{display:grid;grid-template-columns:1fr auto;gap:2px 8px;font-size:11px;color:#5d7064}
+.overview-macro i{grid-column:1 / -1;display:block;height:5px;border-radius:99px;background:#e8efe8;overflow:hidden}
+.overview-macro i b{display:block;height:100%;background:#7eaa88;border-radius:99px}
+.recent-meals{margin:10px 0}
+.recent-meals>div{display:flex;flex-wrap:wrap;gap:7px;margin-top:7px}
+.recent-meals button{border:1px solid #dce7dc;background:#f5f9f4;color:#40604b;border-radius:99px;padding:6px 11px;font-size:11px;cursor:pointer}
+.widget-settings{border:1px solid #e3ebe3;border-radius:12px;padding:10px 14px;margin:14px 0}
+.widget-settings legend{font-size:12px;color:#63766a;padding:0 6px}
+.widget-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 0}
+.widget-row label{display:flex;align-items:center;gap:8px;font-size:13px}
+.widget-row span{display:flex;gap:6px}
+.widget-row .outline-button{margin:0;padding:4px 9px}
+.slot-form{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.slot-form input{padding:8px;border:1px solid #dce7dc;border-radius:9px;background:#fff;color:#20352c}
+.weight-track{font-size:12px;color:#456b50;background:#eff7ed;border-radius:9px;padding:9px 11px;margin:8px 0}
+.offline-banner{margin:10px 0 0;padding:9px 12px;border-radius:10px;background:#fbf3e3;color:#7a5a1a;font-size:12px;line-height:1.5}

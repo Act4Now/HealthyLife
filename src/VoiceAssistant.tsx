@@ -34,10 +34,10 @@ const makeId = () => `${Date.now()}-${Math.random().toString(36).slice(2)}`
 const normalize = (s:string) => s.toLocaleLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[’']/g,' ').replace(/[^a-z0-9: ]/g,' ').replace(/\s+/g,' ').trim()
 const parseTime = (s:string) => {
   const t=normalize(s)
-  const words:Record<string,number>={unu:1,una:1,doi:2,doua:2,trei:3,patru:4,cinci:5,sase:6,sapte:7,opt:8,noua:9,zece:10,unsprezece:11,douasprezece:12}
-  const word=Object.keys(words).find(k=>t.split(/\\s+/).includes(k))
-  if(word&&/(seara|dupa amiaza|pm)/.test(t))return String((words[word]%12)+12).padStart(2,'0')+':00'
-  if(word&&/(dimineata|am)/.test(t))return String(words[word]%12).padStart(2,'0')+':00'
+  const words:Record<string,number>={unu:1,una:1,doi:2,doua:2,trei:3,patru:4,cinci:5,sase:6,sapte:7,opt:8,noua:9,zece:10,unsprezece:11,douasprezece:12,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,eleven:11,twelve:12}
+  const word=Object.keys(words).find(k=>t.split(/\s+/).includes(k))
+  if(word&&/\b(seara|dupa amiaza|pm)\b/.test(t))return String((words[word]%12)+12).padStart(2,'0')+':00'
+  if(word&&/\b(dimineata|am)\b/.test(t))return String(words[word]%12).padStart(2,'0')+':00'
   const m=t.match(/\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b/) || t.match(/\b(?:ora\s*)?(\d{1,2})(?::(\d{2}))?\s*(?:si)?\s*(dimineata|dupa amiaza|seara|noaptea)\b/) || t.match(/\b(\d{1,2})(?::(\d{2}))?\b/)
   if(!m)return ''
   let h=Number(m[1]), min=Number(m[2]??0)
@@ -46,6 +46,14 @@ const parseTime = (s:string) => {
   if((suffix==='am'||suffix==='dimineata')&&h===12)h=0
   if(h>23||min>59)return ''
   return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`
+}
+const countWords:Record<string,number>={one:1,two:2,three:3,four:4,five:5,six:6,un:1,una:1,doua:2,doi:2,trei:3,patru:4,cinci:5,sase:6}
+const containerWords='(?:glass|glasses|pahar|pahare|cup|cups|cana|cani)'
+const parseCount=(s:string)=>{
+  const digit=s.match(new RegExp('\\b(\\d{1,2})\\s+'+containerWords+'\\b'))
+  if(digit)return Math.min(20,Math.max(1,Number(digit[1])))
+  const word=s.match(new RegExp('\\b(one|two|three|four|five|six|un|una|doua|doi|trei|patru|cinci|sase)\\s+'+containerWords+'\\b'))
+  return word?countWords[word[1]]:1
 }
 function parseTranscript(raw:string, language:'ro'|'en'):Draft[]{
   const text=normalize(raw)
@@ -59,9 +67,12 @@ function parseTranscript(raw:string, language:'ro'|'en'):Draft[]{
       const time=parseTime(part)
       const name=/(pill|pills|medication|medicine|pastila|pastile|medicament)/.test(part)?(language==='ro'?'Medicament':'Medication'):''
       const duration=/(week|saptamana|sapte zile|7 zile)/.test(part)?7:/(3 zile|three days)/.test(part)?3:1
-      drafts.push({id:makeId(),intent:'medication',item:name,amount:'1 doză',dose:'1 comprimat',time,date:today(),repeat:`Zilnic, ${duration} ${language==='ro'?'zile':'days'}`,uncertain:!time?'Am nevoie de ora administrării.':undefined})
+      drafts.push({id:makeId(),intent:'medication',item:name,amount:language==='ro'?'1 doză':'1 dose',dose:language==='ro'?'1 comprimat':'1 tablet',time,date:today(),repeat:`${language==='ro'?'Zilnic':'Daily'}, ${duration} ${language==='ro'?(duration===1?'zi':'zile'):(duration===1?'day':'days')}`,uncertain:!time?(language==='ro'?'Am nevoie de ora administrării.':'I need the time of day for this reminder.'):undefined})
     }else if(drank){
-      drafts.push({id:makeId(),intent:'water',item:language==='ro'?'Apă':'Water',amount:language==='ro'?'1 pahar':'1 glass',time:new Date().toTimeString().slice(0,5),date:today()})
+      const mlMatch=part.match(/\b(\d{2,4})\s*(?:ml|milliliters?|mililitri)\b/)
+      const count=parseCount(part)
+      const waterAmount=mlMatch?`${mlMatch[1]} ml`:language==='ro'?`${count} ${count===1?'pahar':'pahare'}`:`${count} ${count===1?'glass':'glasses'}`
+      drafts.push({id:makeId(),intent:'water',item:language==='ro'?'Apă':'Water',amount:waterAmount,time:new Date().toTimeString().slice(0,5),date:today()})
     }else if(mealVerb){
       const known=['pie','cake','pizza','apple','banana','sandwich','salad','soup','plăcintă','placinta','prăjitură','prajitura','măr','mar','banană','banana','sandviș','sandvis','salată','salata','supă','supa']
       const matched=known.filter(x=>part.includes(normalize(x))).sort((a,b)=>b.length-a.length)[0]
@@ -132,14 +143,14 @@ export default function VoiceAssistant({userId,language}:{userId?:string;languag
     const {data,error}=await supabase.from('meal_logs').insert({user_id:userId,description:`${d.item} · ${d.amount}`,calories_kcal:0,protein_g:0,carbohydrates_g:0,fat_g:0,ingredients:[]}).select('id').single()
     result={data,error};entry={table:'meal_logs',id:data?.id??'',label:d.item}
    }else if(d.intent==='water'){
-    const explicitMl=d.amount.match(/(\\d+(?:[.,]\\d+)?)\\s*ml/i)
-    const countMatch=d.amount.match(/(\\d+(?:[.,]\\d+)?)/)
+    const explicitMl=d.amount.match(/(\d+(?:[.,]\d+)?)\s*ml/i)
+    const countMatch=d.amount.match(/(\d+(?:[.,]\d+)?)/)
     const amountMl=explicitMl?Math.round(Number(explicitMl[1].replace(',','.'))):Math.round(glassMl*(countMatch?Number(countMatch[1].replace(',','.')):1))
     if(!Number.isFinite(amountMl)||amountMl<1||amountMl>5000)throw new Error(language==='ro'?'Cantitatea de apă trebuie să fie între 1 și 5.000 ml.':'Water amount must be between 1 and 5,000 ml.')
     const {data,error}=await supabase.from('hydration_logs').insert({user_id:userId,amount_ml:amountMl}).select('id').single()
     result={data,error};entry={table:'hydration_logs',id:data?.id??'',label:`${amountMl} ml`}
    }else{
-    const {data,error}=await supabase.from('medications').insert({user_id:userId,name:d.item,dose:d.dose||d.amount,schedule:d.time,notes:`Voice assistant · ${d.repeat}`,starts_on:d.date,ends_on:new Date(new Date(d.date+'T12:00:00').getTime()+(Math.max(1,Number(d.repeat?.match(/\d+/)?.[0]??1))-1)*86400000).toISOString().slice(0,10)}).select('id').single()
+    const {data,error}=await supabase.from('medications').insert({user_id:userId,name:d.item,dose:d.dose||d.amount,schedule:d.time,notes:`Voice assistant · ${d.repeat}`,starts_on:d.date,ends_on:new Date(new Date(d.date+'T12:00:00').getTime()+(Math.max(1,Number((d.repeat??'').match(/\d+/)?.[0]??1))-1)*86400000).toISOString().slice(0,10)}).select('id').single()
     result={data,error};entry={table:'medications',id:data?.id??'',label:d.item}
    }
    if(result.error)throw result.error
