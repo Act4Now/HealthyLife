@@ -16,6 +16,9 @@ See [CHANGELOG.md](./CHANGELOG.md) and [version.json](./version.json).
 - Supabase PostgreSQL profile table with Row Level Security
 - GitHub Actions for CI and GitHub Pages deployment
 
+## Release 2.1.0
+See `CHANGELOG.md`. After deploying, run `supabase/verify.sql` in Supabase → SQL Editor to confirm the database matches the app. The service worker caches only the app shell (never Supabase or personal data), so the app opens offline but cannot load or save data without a connection.
+
 ## Phase 2 setup
 See [Supabase setup instructions](./supabase/README.md).
 

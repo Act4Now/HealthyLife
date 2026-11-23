@@ -1,8 +1,8 @@
 {
-  "version": "1.0.2",
-  "release": "phase-2-auth-profiles",
-  "previousVersion": "1.0.1",
-  "status": "development",
+  "version": "2.1.0",
+  "release": "release-2-1-dashboard-targets-offline",
+  "previousVersion": "2.0.0",
+  "status": "release-candidate",
   "repository": "Act4Now/HealthyLife",
-  "branch": "release/1.0.2-phase-2"
+  "branch": "release/2.1.0"
 }
