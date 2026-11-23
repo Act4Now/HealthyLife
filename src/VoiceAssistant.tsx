@@ -132,8 +132,12 @@ export default function VoiceAssistant({userId,language}:{userId?:string;languag
     const {data,error}=await supabase.from('meal_logs').insert({user_id:userId,description:`${d.item} · ${d.amount}`,calories_kcal:0,protein_g:0,carbohydrates_g:0,fat_g:0,ingredients:[]}).select('id').single()
     result={data,error};entry={table:'meal_logs',id:data?.id??'',label:d.item}
    }else if(d.intent==='water'){
-    const {data,error}=await supabase.from('hydration_logs').insert({user_id:userId,amount_ml:glassMl}).select('id').single()
-    result={data,error};entry={table:'hydration_logs',id:data?.id??'',label:`${glassMl} ml`}
+    const explicitMl=d.amount.match(/(\\d+(?:[.,]\\d+)?)\\s*ml/i)
+    const countMatch=d.amount.match(/(\\d+(?:[.,]\\d+)?)/)
+    const amountMl=explicitMl?Math.round(Number(explicitMl[1].replace(',','.'))):Math.round(glassMl*(countMatch?Number(countMatch[1].replace(',','.')):1))
+    if(!Number.isFinite(amountMl)||amountMl<1||amountMl>5000)throw new Error(language==='ro'?'Cantitatea de apă trebuie să fie între 1 și 5.000 ml.':'Water amount must be between 1 and 5,000 ml.')
+    const {data,error}=await supabase.from('hydration_logs').insert({user_id:userId,amount_ml:amountMl}).select('id').single()
+    result={data,error};entry={table:'hydration_logs',id:data?.id??'',label:`${amountMl} ml`}
    }else{
     const {data,error}=await supabase.from('medications').insert({user_id:userId,name:d.item,dose:d.dose||d.amount,schedule:d.time,notes:`Voice assistant · ${d.repeat}`,starts_on:d.date,ends_on:new Date(new Date(d.date+'T12:00:00').getTime()+(Math.max(1,Number(d.repeat.match(/\d+/)?.[0]??1))-1)*86400000).toISOString().slice(0,10)}).select('id').single()
     result={data,error};entry={table:'medications',id:data?.id??'',label:d.item}
