@@ -15,6 +15,11 @@ In Supabase, open **SQL Editor → New query** and apply every migration in file
 5. `migrations/202611220005_v2_preferences_planner_and_suggestions.sql`
 6. `migrations/202611220006_onboarding_deferral.sql`
 7. `migrations/202611220007_meal_log_owner_updates.sql`
+8. `migrations/202611230001_push_subscriptions.sql`
+9. `migrations/202611230002_voice_assistant.sql`
+10. `migrations/202611240001_release_2_1_0.sql`
+
+Run `supabase/verify.sql` (read-only) first to see which of these are already applied; rows with `ok = false` show what is missing. Do not re-run migrations that are already applied.
 
 Verify each query completes successfully before deploying frontend code that references its columns, tables, or policies. These migrations add schema and owner-scoped permissions; they do not delete existing user records.
 
