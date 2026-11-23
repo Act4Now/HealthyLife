@@ -70,3 +70,21 @@ The onboarding flow is shown automatically when a signed-in profile has not comp
 The meal journal supports date-based history, copying a meal or a complete previous day, and owner-only correction/deletion. Custom foods support editing, deletion and favorites. Custom recipes support per-serving nutrition calculation, editing and deletion. Migration 007 adds the owner-only `UPDATE` policy required by meal editing.
 
 These code changes still require all seven migrations to be applied in the target Supabase project and authenticated end-to-end verification before production use. The remaining v2 requirements (weekly planner, notification delivery/snooze, 14-day progress suggestions, configurable dashboard, and complete preferences/offline/accessibility behavior) remain outside this implementation batch.
+
+
+## 8. Web push notifications (new)
+
+The planner can register a browser push subscription. The public VAPID key is embedded in the static frontend; the private key and Supabase service-role key must remain Edge Function secrets.
+
+1. Apply `migrations/202611230001_push_subscriptions.sql` in **Supabase → SQL Editor → New query**.
+2. Generate a VAPID key pair with a trusted Web Push VAPID generator or a local `web-push` installation. Never commit the private key.
+3. Add the public key as the GitHub Actions repository variable `VITE_VAPID_PUBLIC_KEY` (**Settings → Secrets and variables → Actions → Variables**).
+4. Deploy the sender function:
+   ```sh
+   supabase functions deploy send-push
+   supabase secrets set VAPID_PUBLIC_KEY=YOUR_PUBLIC_KEY VAPID_PRIVATE_KEY=YOUR_PRIVATE_KEY VAPID_SUBJECT=mailto:YOUR_CONTACT_EMAIL
+   ```
+   Supabase provides `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` to Edge Functions. Do not copy the service-role key into GitHub or the browser.
+5. Rebuild and deploy the Pages frontend. Sign in, open **Planificator**, then select **Activează push în fundal** and allow browser notifications.
+
+The `send-push` function currently sends a push message to the signed-in user's registered browser subscriptions when invoked with an authenticated Supabase session. It removes expired subscriptions (HTTP 404/410). This is the server-side delivery primitive, not yet an automatic meal-reminder scheduler: scheduled dispatch, retry/backoff, unsubscribe UI, and delivery monitoring remain follow-up work. Push delivery also depends on browser support, notification permission, VAPID configuration, and the user's device/network settings.
