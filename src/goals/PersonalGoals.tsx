@@ -159,6 +159,11 @@ export default function PersonalGoals({ userId, onboarding = false, onComplete, 
       ? await supabase.from('daily_targets').update(row).eq('id', existing.id)
       : await supabase.from('daily_targets').insert(row)
     if (result.error) { setMessage('Eroare la salvarea obiectivelor: ' + result.error.message); setBusy(false); return }
+    if (enabled.water && Number.isFinite(values.water) && values.water >= 250 && values.water <= 10000) {
+      // Keep the Hydration screen's goal in sync with the daily water target.
+      const { error: waterError } = await supabase.from('wellness_goals').upsert({ user_id: userId, hydration_goal_ml: Math.round(values.water), updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      if (waterError) console.error('HealthyLife: could not sync hydration goal', waterError.message)
+    }
     const { error: profileError } = await supabase.from('profiles').update({ onboarding_completed_at: new Date().toISOString(), onboarding_skipped_at: null }).eq('id', userId)
     if (profileError) { setMessage('Țintele au fost salvate, dar finalizarea configurării nu a putut fi înregistrată: ' + profileError.message); setBusy(false); return }
     setBusy(false)
